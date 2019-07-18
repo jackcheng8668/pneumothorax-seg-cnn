@@ -40,7 +40,7 @@ class SnapshotCallbackBuilder:
         self.M = nb_snapshots
         self.alpha_zero = init_lr
 
-    def get_callbacks(self, model_prefix='Model'):
+    def get_callbacks(self, swa, model_prefix='Model'):
 
         callback_list = [
             callbacks.ModelCheckpoint("./keras.model",monitor='val_my_iou_metric',
