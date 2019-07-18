@@ -11,17 +11,19 @@ class SegmentationGenerator(BaseGenerator):
     Generates (image, mask) pairs. Supports `channels_last`
     Args:
         images_dir (str): path to the directory preprocessed images (.png)
-        masks_dir (str): path to the directory of masks (.png)
-        augmentations (albumentations transform): either Composed or an individual augmentation
+        masks_dir (str): path to the masks (.png)
         batch_size (int):
+        fpaths (list): of filepaths directly to the training images
+        augmentations (albumentations transform): either Composed or an individual augmentation
         shuffle (bool):
     """
-    def __init__(self, images_dir, masks_dir, batch_size, augmentations=None, shuffle=True):
-        fpaths = glob.glob(images_dir+'/*')
-        super().__init__(fpaths=fpaths, batch_size=batch_size, shuffle=shuffle)
+    def __init__(self, images_dir, masks_dir, batch_size, fpaths=None, augmentations=None, shuffle=True):
+        if fpaths is None:
+            fpaths = glob.glob(images_dir+'/*')
         self.images_dir = images_dir
         self.masks_dir = masks_dir
         self.augment = augmentations
+        super().__init__(fpaths=fpaths, batch_size=batch_size, shuffle=shuffle)
         self.on_epoch_end()
 
     def __getitem__(self, index):
@@ -76,16 +78,19 @@ class ClassificationGenerator(BaseGenerator):
     Generates (image, classification label). Supports `channels_last`.
     Args:
         images_dir (str): path to the directory preprocessed images (.png)
-        augmentations (albumentations transform): either Composed or an individual augmentation
+        masks_dir (str): path to the masks (.png)
         batch_size (int):
+        fpaths (list): of filepaths directly to the training images
+        augmentations (albumentations transform): either Composed or an individual augmentation
         shuffle (bool):
     """
-    def __init__(self, images_dir, masks_dir, batch_size, augmentations=None, shuffle=True):
-        fpaths = glob.glob(images_dir+'/*')
-        super().__init__(fpaths=fpaths, batch_size=batch_size, shuffle=shuffle)
+    def __init__(self, images_dir, masks_dir, batch_size, fpaths=None, augmentations=None, shuffle=True):
+        if fpaths is None:
+            fpaths = glob.glob(images_dir+'/*')
         self.images_dir = images_dir
         self.masks_dir = masks_dir
         self.augment = augmentations
+        super().__init__(fpaths=fpaths, batch_size=batch_size, shuffle=shuffle)
         self.on_epoch_end()
 
     def __getitem__(self, idx):
