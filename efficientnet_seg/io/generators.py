@@ -3,7 +3,7 @@ import glob
 import pandas as pd
 import tensorflow as tf
 keras = tf.keras
-from efficientnet_seg.io.gen_utils import BaseGenerator
+from efficientnet_seg.io.base_generators import BaseGenerator
 from PIL import Image
 
 class SegmentationGenerator(BaseGenerator):
