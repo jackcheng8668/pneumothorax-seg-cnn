@@ -60,9 +60,10 @@ class Oversampler(object):
         self.neg_fpaths = []
         for fpath in self.fpaths:
             encoded_pixels = self.df.loc[fpath.split('/')[-1][:-4], 1]
-            if encoded_pixels == ' -1' or encoded_pixels == " -1":
-                self.neg_fpaths.append(fpath)
-            else:
+            if (type(encoded_pixels) != str or (type(encoded_pixels) == str and encoded_pixels != ' -1')):
                 self.pos_fpaths.append(fpath)
+            elif encoded_pixels == " -1":
+                self.neg_fpaths.append(fpath)
+
         assert len(self.pos_fpaths)+len(self.neg_fpaths) == len(self.fpaths), "# of filepaths doesn't match with the sum of the # of grouped class filepaths."
         return (len(self.pos_fpaths), len(self.neg_fpaths))
