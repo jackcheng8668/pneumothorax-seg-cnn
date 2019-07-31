@@ -11,26 +11,35 @@ The first route was simply to use the data from:
 * https://www.kaggle.com/iafoss/siimacr-pneumothorax-segmentation-data-256
   * mean 0.540, std 0.264
 
-## Training
-* Data is in the `channels_last` format (for the pretrained weights)
-### Data Augmentation
-Baseline would be [this kernel](https://www.kaggle.com/meaninglesslives/unet-with-efficientnet-encoder-in-keras), which uses [albumentations](https://github.com/albu/albumentations).
-Next steps are to try to apply:
-* https://github.com/kakaobrain/fast-autoaugment
-* https://github.com/arcelien/pba
+The only preprocessing that was done was histogram normalization and rescaling the intensities to [0, 255].
 
-### Loss Functions & Metrics
-Since this part of my pipeline isn't really the focus, I'm going to try to keep it simple
-and only use mean iou and BCE dice loss.
+## Baselines
 
-### Other Training Settings
-* Using the SnapshotCallbackBuilder and SWA as defined in the [baseline kernel](https://www.kaggle.com/meaninglesslives/unet-with-efficientnet-encoder-in-keras).
-
-## Architectures
-Baseline would be [this kernel](https://www.kaggle.com/meaninglesslives/unet-with-efficientnet-encoder-in-keras).
-  * However, I'm going to change up the residual blocks so that it's LeakyReLU -> BN
+### [1] EfficientNet + UEfficientNet
+[0.7976 Public LB]
+The first baseline is a classification + segmentation cascade.
+* The classification stage is the EfficientNetB4 architecture with the same settings as the kernel below.
+  * Uses binary cross entropy & accuracy and F1-score
+* The segmentation stage comes from [this kernel](https://www.kaggle.com/meaninglesslives/unet-with-efficientnet-encoder-in-keras), which uses [albumentations](https://github.com/albu/albumentations). The data augmentation is not properly optimized.
+  * However, I changed the residual blocks so that it's LeakyReLU -> BN
   instead of BN -> LeakyReLU.
+  * uses binary cross entropy + dice loss & mean iou for evaluation
+The baseline uses the SnapshotCallbackBuilder and Stochastic Weight Averaging.
+* Weights used:
+  * Classifier: [b4_pneumothorax_ckpoint_epoch15.model](https://drive.google.com/open?id=1P-o6CNz0nJDaDhg4Djo0Tz-f_I5RCSWn) [0.7886 Public LB]
+  * Segmentation Model: [uefficientnet_pneumothorax_pos_only_epoch70_checkpoint.model](https://drive.google.com/open?id=1w9k6WzSjIue51FE6q7zgmCtWR2gMJ-w3)
 
+### [2] From the RSNA Pneumonia Detection 1st Place Solution
+[In-Progress]
+The second baseline is a classification + segmentation cascade.
+* The classification stage comes from [the 1st place solution for the 2018 RSNA Pneumonia Detection Challenge](https://github.com/i-pan/kaggle-rsna18). Their full description is located [here](https://www.kaggle.com/c/rsna-pneumonia-detection-challenge/discussion/70421).
+  * Fine-tunes ImageNet pretrained InceptionResNetV2, Xception, and DenseNet169 that are subsequently pretrained on the NIH ChestXray14 dataset.
+* The segmentation stage is similar to their detection ensemble, except that I change up the architectures
+  * 5-fold UResNet
+  * 5-fold UEfficientNet
+  * 5-fold Attention-Gated U-Net?
+  * idk
+
+## EfficientNet-like Training
 Next I'm going to try to create 3 levels of architectures based on the U-Net and [the EfficientNet](https://arxiv.org/abs/1905.11946)
-way of training (d, w, r). As such, I need to create the GridSearch aspect of the pipeline and
-create a reasonable B0.
+way of training (d, w, r). As such, I need to create the GridSearch aspect of the pipeline and create a reasonable B0.
