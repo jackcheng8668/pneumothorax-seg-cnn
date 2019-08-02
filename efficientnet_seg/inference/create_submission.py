@@ -9,7 +9,7 @@ from pathlib import Path
 from PIL import Image
 from tqdm import tqdm
 from efficientnet_seg.inference.mask_functions import *
-
+from efficientnet_seg.io.data_aug import data_augmentation, data_augmentation_all
 """
 To-do:
     make the 2 stages separate functions
@@ -160,35 +160,6 @@ def TTA_Segmentation_All(model, test_arrays, batch_size=32):
     preds_test_tta = np.asarray([np.fliplr(x) for x in preds_test_tta])
     preds_test = np.mean([preds_test, preds_test_tta], axis=0)
     return preds_test
-
-def data_augmentation(image):
-    # Input should be ONE image with shape: (L, W, CH)
-    options = ["gaussian_smooth", "vertical_flip", "rotate", "zoom", "adjust_gamma"]
-    # Probabilities for each augmentation were arbitrarily assigned
-    which_option = np.random.choice(options)
-    if which_option == "vertical_flip":
-        image = np.fliplr(image)
-
-    if which_option == "gaussian_smooth":
-        sigma = np.random.uniform(0.2, 1.0)
-        image = gaussian_filter(image, sigma)
-    elif which_option == "zoom":
-      # Assumes image is square
-        min_crop = int(image.shape[0]*0.85)
-        max_crop = int(image.shape[0]*0.95)
-        crop_size = np.random.randint(min_crop, max_crop)
-        crop = crop_center(image, crop_size, crop_size)
-        if crop.shape[-1] == 1: crop = crop[:,:,0]
-        image = scipy.misc.imresize(crop, image.shape)
-    elif which_option == "rotate":
-        angle = np.random.uniform(-15, 15)
-        image = rotate(image, angle, reshape=False)
-    elif which_option == "adjust_gamma":
-        image = image / 255.
-        image = exposure.adjust_gamma(image, np.random.uniform(0.75, 1.25))
-        image = image * 255.
-    if len(image.shape) == 2: image = np.expand_dims(image, axis=2)
-    return image
 
 def load_input(fpath, img_size=256):
     """
