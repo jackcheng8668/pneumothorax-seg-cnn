@@ -169,7 +169,7 @@ def build_model(input_shape=(160, 192, 4), output_channels=3, weight_L2=0.1, wei
     elif data_format == "channels_first":
         c, H, W = input_shape
     assert len(input_shape) == 3, "Input shape must be a 3-tuple"
-    assert (c % 4) == 0, "The no. of channels must be divisible by 4"
+    # assert (c % 4) == 0, "The no. of channels must be divisible by 4"
     assert (H % 16) == 0 and (W % 16) == 0, \
         "All the input dimensions must be divisible by 16"
 
@@ -257,9 +257,15 @@ def build_model(input_shape=(160, 192, 4), output_channels=3, weight_L2=0.1, wei
     x = Lambda(sampling, name='Dec_VAE_VDraw_Sampling')([z_mean, z_var])
 
     ### VU Block (Upsizing back to a depth of 256)
-    x = Dense((c//4) * (H//16) * (W//16))(x)
-    x = Activation('relu')(x)
-    x = Reshape(((H//16), (W//16), (c//4)))(x)
+    if c < 4:
+        x = Dense(c * (H//16) * (W//16))(x)
+        x = Activation('relu')(x)
+        x = Reshape(((H//16), (W//16), c))(x)
+    else:
+        assert (c % 4) == 0, "The no. of channels must be divisible by 4"
+        x = Dense((c//4) * (H//16) * (W//16))(x)
+        x = Activation('relu')(x)
+        x = Reshape(((H//16), (W//16), (c//4)))(x)
     x = Conv2D(filters=256,kernel_size=(1, 1), strides=1, data_format=data_format, name='Dec_VAE_ReduceDepth_256')(x)
     x = UpSampling2D(size=2, data_format=data_format,name='Dec_VAE_UpSample_256')(x)
 
