@@ -1,4 +1,5 @@
 import numpy as np
+import cv2
 from pathlib import Path
 from efficientnet_seg.inference.mask_functions import *
 from efficientnet_seg.inference.utils import load_input
@@ -52,6 +53,7 @@ def Stage2(seg_model, sub_df, test_fpaths, channels=3, img_size=256, batch_size=
         print("Resizing the predictions...")
         preds_seg = np.asarray([cv2.resize(pred).T.astype(np.uint8) for pred in preds_seg])
         assert np.unique(preds_seg).size <= 2 # sanity check <- remove later
+        print(np.unique(preds_seg)) # another sanity check <- remove later
     sub_df = edit_classification_df(sub_df, preds_seg, seg_ids)
     sub_df.to_csv("submission_final.csv", index=False)
 
