@@ -4,9 +4,12 @@ import numpy as np
 def load_input(fpath, img_size=256, channels=3):
     """
     Loads and resizes a .png file.
+
     Args:
         fpath (str): file path to a .png file to load
         img_size (int): representing the height and width of the image to resize to
+    Returns:
+        arr (np.ndarray): shape (img_size, img_size, channels)
     """
     arr = np.array(Image.open(fpath))
     resize_shape = (img_size, img_size)
