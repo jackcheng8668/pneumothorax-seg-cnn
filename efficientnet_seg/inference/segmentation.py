@@ -31,6 +31,7 @@ def Stage2(seg_model, sub_df, test_fpaths, channels=3, img_size=256, batch_size=
     if tta:
         # ensembling with TTA
         if isinstance(seg_model, (list, tuple)):
+            # stacking across the batch_size dimension
             preds_seg = np.mean(np.vstack([TTA_Segmentation_All(model_, x_test, batch_size=batch_size)
                                           for model_ in seg_model]), axis=0).squeeze()
         else:
@@ -38,6 +39,7 @@ def Stage2(seg_model, sub_df, test_fpaths, channels=3, img_size=256, batch_size=
     else:
         # ensembling without TTA
         if isinstance(seg_model, (list, tuple)):
+            # stacking across the batch_size dimension
             preds_seg = np.mean(np.vstack([model_.predict(x_test, batch_size=batch_size)
                                           for model_ in seg_model]), axis=0).squeeze()
         else:
@@ -49,8 +51,9 @@ def Stage2(seg_model, sub_df, test_fpaths, channels=3, img_size=256, batch_size=
     if h_w != (1024, 1024):
         print("Resizing the predictions...")
         preds_seg = np.asarray([cv2.resize(pred).T.astype(np.uint8) for pred in preds_seg])
+        assert np.unique(preds_seg).size <= 2 # sanity check <- remove later
     sub_df = edit_classification_df(sub_df, preds_seg, seg_ids)
-    sub_df.to_csv('submission_final.csv', index=False)
+    sub_df.to_csv("submission_final.csv", index=False)
 
     print("Stage 2 Completed.")
 
@@ -90,5 +93,5 @@ def edit_classification_df(df, preds_seg, p_ids):
     for id_, rle in zip(p_ids, rles):
         df.loc[df["ImageId"] == id_, "EncodedPixels"] = rle
     # handling empty masks
-    df.loc[df.EncodedPixels=='', 'EncodedPixels'] = '-1'
+    df.loc[df.EncodedPixels=="", "EncodedPixels"] = "-1"
     return df
