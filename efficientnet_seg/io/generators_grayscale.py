@@ -4,6 +4,7 @@ import tensorflow as tf
 import albumentations
 
 from efficientnet_seg.io.generators import SegmentationGenerator, ClassificationGenerator
+from efficientnet_seg.io.utils import preprocess_input
 from PIL import Image
 
 class GrayscaleSegmentationGenerator(SegmentationGenerator):
@@ -13,15 +14,27 @@ class GrayscaleSegmentationGenerator(SegmentationGenerator):
         images_dir (str): path to the directory preprocessed images (.png)
         masks_dir (str): path to the masks (.png)
         batch_size (int): Mandatory argument for the desired batch size of the input.
-        model_name (str): Either 'densenet', 'inception', or 'xception' to specify the preprocessing
+        model_name (str): For the model_name argument in preprocess_fn. If preprocess_fn=None, use
+            either 'densenet', 'inception', or 'xception' to specify the preprocessing. If no preprocessing,
+            then set model_name=None. If using a custom `preprocess_fn`, then feel free to customize the
+            value for this attribute/argument.
         fpaths (list): of filepaths directly to the training images
         augmentations (albumentations transform): either Composed or an individual augmentation
             * Note: This can also just be a function; must take in the `image` and `mask` arguments and
             return a dictionary with the keys: `image`, `mask`. An example is `io.data_aug.data_augmentation_all`.
+        preprocess_fn (function): Function with arguments: x, model_name. Defaults to None, which
+            corresponds to`preprocess_input` (for ImageNet pretrained models). This argument exists for
+            increased versatility and generalizability.
         shuffle (bool):
     """
-    def __init__(self, images_dir, masks_dir, batch_size, model_name=None, fpaths=None, augmentations=None, shuffle=True):
+    def __init__(self, images_dir, masks_dir, batch_size, model_name=None, fpaths=None, augmentations=None,
+                 preprocess_fn=None, shuffle=True):
         self.model_name = model_name
+        if preprocess_fn is None:
+            self.preprocess_fn = preprocess_input
+        else:
+            self.preprocess_fn = preprocess_fn
+
         super().__init__(images_dir=images_dir, masks_dir=masks_dir, batch_size=batch_size, fpaths=fpaths, \
                          augmentations=augmentations, shuffle=shuffle)
         self.on_epoch_end()
@@ -39,8 +52,7 @@ class GrayscaleSegmentationGenerator(SegmentationGenerator):
 
         # only preprocesses the input when there is no data augmentation
         if self.augment is None:
-            if self.model_name is not None:
-                X = preprocess_input(X, self.model_name)
+            X = self.preprocess_fn(X, self.model_name)
             return X, np.array(Y)/255
         else:
             # Augmentation
@@ -51,8 +63,7 @@ class GrayscaleSegmentationGenerator(SegmentationGenerator):
                 im.append(augmented['image']), masks.append(augmented['mask'])
             X, Y = np.asarray(im), np.asarray(masks)/255
             # preprocessing
-            if self.model_name is not None:
-                X = preprocess_input(X, self.model_name)
+            X = self.preprocess_fn(X, self.model_name)
             return X, Y
 
     def data_gen(self, fpaths_temp):
@@ -85,14 +96,26 @@ class GrayscaleClassificationGenerator(ClassificationGenerator):
         images_dir (str): path to the directory preprocessed images (.png)
         masks_dir (str): path to the masks (.png)
         batch_size (int):
+        model_name (str): For the model_name argument in preprocess_fn. If preprocess_fn=None, use
+            either 'densenet', 'inception', or 'xception' to specify the preprocessing. If no preprocessing,
+            then set model_name=None. If using a custom `preprocess_fn`, then feel free to customize the
+            value for this attribute/argument.
         fpaths (list): of filepaths directly to the training images
         augmentations (albumentations transform): either Composed or an individual augmentation
             * Note: This can also just be a function; must take in the `image` and `mask` arguments and
             return a dictionary with the keys: `image`, `mask`. An example is `io.data_aug.data_augmentation_all`.
+        preprocess_fn (function): Function with arguments: x, model_name. Defaults to None, which
+            corresponds to`preprocess_input` (for ImageNet pretrained models). This argument exists for
+            increased versatility and generalizability.
         shuffle (bool):
     """
-    def __init__(self, images_dir, masks_dir, batch_size, model_name=None, fpaths=None, augmentations=None, shuffle=True):
+    def __init__(self, images_dir, masks_dir, batch_size, model_name=None, fpaths=None, augmentations=None,
+                 preprocess_fn=None, shuffle=True):
         self.model_name = model_name
+        if preprocess_fn is None:
+            self.preprocess_fn = preprocess_input
+        else:
+            self.preprocess_fn = preprocess_fn
         super().__init__(images_dir=images_dir, masks_dir=masks_dir, batch_size=batch_size, fpaths=fpaths, \
                          augmentations=augmentations, shuffle=shuffle)
         self.on_epoch_end()
@@ -111,14 +134,12 @@ class GrayscaleClassificationGenerator(ClassificationGenerator):
         X, Y = self.data_gen(fpaths_temp)
         # data augmentation
         if self.augment is None:
-            if self.model_name is not None:
-                X = preprocess_input(X, self.model_name)
+            X = self.preprocess_fn(X, self.model_name)
             return (X, Y)
         else:
             # The output of a self.augment should be a dictionary {"image":..., "mask":...}
             X = np.stack([self.augment(image=x)['image'] for x in X])
-            if self.model_name is not None:
-                X = preprocess_input(X, self.model_name)
+            X = self.preprocess_fn(X, self.model_name)
             return (X, Y)
 
     def data_gen(self, fpaths_temp):
@@ -143,37 +164,3 @@ class GrayscaleClassificationGenerator(ClassificationGenerator):
             x_batch.append(x), y_batch.append(y)
         X, Y = np.stack(x_batch), np.vstack(y_batch)
         return (X, Y)
-
-def preprocess_input(x, model_name):
-    """
-    Preprocess some numpy array input, x, in the style of the user-specified model_name.
-    Supports both grayscale and RGB inputs. Assumes channels_last.
-    Args:
-        x (np.ndarray): (x, y, z, n_channels)
-        model_name (str): Either `inception`, `xception`, `mobilenet`, `resnet`, `vgg`, or `densenet`
-    """
-    x = x.astype("float32")
-    if model_name in ("inception","xception","mobilenet"):
-        x /= 255.
-        x -= 0.5
-        x *= 2.
-    if model_name in ("densenet"):
-        x /= 255.
-        if x.shape[-1] == 3:
-            x[..., 0] -= 0.485
-            x[..., 1] -= 0.456
-            x[..., 2] -= 0.406
-            x[..., 0] /= 0.229
-            x[..., 1] /= 0.224
-            x[..., 2] /= 0.225
-        elif x.shape[-1] == 1:
-            x[..., 0] -= 0.449
-            x[..., 0] /= 0.226
-    elif model_name in ("resnet","vgg"):
-        if x.shape[-1] == 3:
-            x[..., 0] -= 103.939
-            x[..., 1] -= 116.779
-            x[..., 2] -= 123.680
-        elif x.shape[-1] == 1:
-            x[..., 0] -= 115.799
-    return x
