@@ -50,7 +50,7 @@ def data_augmentation(image, mask=None):
         angle = np.random.uniform(-15, 15)
         image = rotate(image, angle, reshape=False)
         if mask is not None:
-            mask = rotate(mask, angle, reshape=False)
+            mask = rotate(mask, angle, reshape=False, order=0)
     elif which_option == "adjust_gamma":
         image = image / 255.
         image = exposure.adjust_gamma(image, np.random.uniform(0.75, 1.25))
