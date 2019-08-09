@@ -33,16 +33,18 @@ def Stage2(seg_model, sub_df, test_fpaths, channels=3, img_size=256, batch_size=
         # ensembling with TTA
         if isinstance(seg_model, (list, tuple)):
             # stacking across the batch_size dimension
-            preds_seg = np.mean(np.vstack([TTA_Segmentation_All(model_, x_test, batch_size=batch_size)
-                                          for model_ in seg_model]), axis=0).squeeze()
+            print("Ensembling the models with TTA...")
+            preds_seg = np.mean(np.stack([TTA_Segmentation_All(model_, x_test, batch_size=batch_size)
+                                          for model_ in tqdm(seg_model)]), axis=0).squeeze()
         else:
             preds_seg = TTA_Segmentation_All(seg_model, x_test, batch_size=batch_size).squeeze()
     else:
         # ensembling without TTA
         if isinstance(seg_model, (list, tuple)):
             # stacking across the batch_size dimension
-            preds_seg = np.mean(np.vstack([model_.predict(x_test, batch_size=batch_size)
-                                          for model_ in seg_model]), axis=0).squeeze()
+            print("Ensembling the models...")
+            preds_seg = np.mean(np.stack([model_.predict(x_test, batch_size=batch_size)
+                                          for model_ in tqdm(seg_model)]), axis=0).squeeze()
         else:
             preds_seg = seg_model.predict(x_test, batch_size=batch_size).squeeze()
 
