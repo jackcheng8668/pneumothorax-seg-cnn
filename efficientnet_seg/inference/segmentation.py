@@ -4,9 +4,11 @@ from tqdm import tqdm
 from pathlib import Path
 from efficientnet_seg.inference.mask_functions import *
 from efficientnet_seg.inference.utils import load_input
+from efficientnet_seg.io.utils import preprocess_input
+from functools import partial
 
 def Stage2(seg_model, sub_df, test_fpaths, channels=3, img_size=256, batch_size=32, tta=True,
-           threshold=0.5):
+           threshold=0.5, preprocess_fn=None, **kwargs):
     """
     For the second (segmentation) stage of the classification/segmentation cascade. It assumes that the
     seg_model was trained on pos-only examples.
@@ -21,13 +23,20 @@ def Stage2(seg_model, sub_df, test_fpaths, channels=3, img_size=256, batch_size=
         img_size (int): The size of each square input image. Defaults to 256.
         batch_size (int): model prediction batch size
         tta (boolean): whether or not to apply test-time augmentation.
+        preprocess_fn (function): function to preprocess the test arrays with. Specify the other arguments
+            with **kwargs.
+    Returns:
+        None
     """
+    # default just converts the input from int -> flaot
+    preprocess_fn = partial(preprocess_input, model_name=None) if preprocess_fn is None else preprocess_fn
     # Stage 2: Segmentation
     print("Commencing Stage 2: Segmentation of Predicted Pneumothorax (+) Patients")
     # extracting positive only ids
     seg_ids = sub_df.loc[sub_df["EncodedPixels"] == 1, "ImageId"].tolist()
     x_test = np.asarray([load_input(fpath, img_size, channels=channels)
                          for fpath in test_fpaths if Path(fpath).stem in seg_ids])
+    x_test = preprocess_fn(x_test, **kwargs)
     # squeezes are for removing the output classes dimension (1, because binary and sigmoid)
     if tta:
         # ensembling with TTA

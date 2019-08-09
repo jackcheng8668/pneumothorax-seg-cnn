@@ -7,7 +7,8 @@ from .utils import *
 
 def create_submission(classification_model, seg_model, test_fpaths=None, classification_channels=3,
                       seg_channels=3, classification_img_size=256, seg_img_size=256, batch_size=32, tta=True,
-                      classification_thresh=0.5, seg_thresh=0.5, classify_csv_fpath=None):
+                      classification_thresh=0.5, seg_thresh=0.5, seg_preprocess_fn=None, seg_preprocess_kwargs={},
+                      classify_csv_fpath=None,):
     """
     Performs the cascade. All non-pneumothorax predictions are "-1". All pneumothorax patients
     are then passed to the segmentation model to generate the predicted mask, which is then
@@ -27,4 +28,5 @@ def create_submission(classification_model, seg_model, test_fpaths=None, classif
         sub_df = pd.read_csv(classify_csv_fpath)
     # Stage 2: Segmentation
     _ = Stage2(seg_model, sub_df, test_fpaths, channels=seg_channels, img_size=seg_img_size,
-               batch_size=batch_size, tta=tta, threshold=seg_thresh)
+               batch_size=batch_size, tta=tta, threshold=seg_thresh, preprocess_fn=seg_preprocess_fn,
+               **seg_preprocess_kwargs)
