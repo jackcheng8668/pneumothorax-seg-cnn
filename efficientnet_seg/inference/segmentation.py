@@ -24,9 +24,8 @@ def Stage2(seg_model, sub_df, test_fpaths, channels=3, img_size=256, batch_size=
     """
     # Stage 2: Segmentation
     print("Commencing Stage 2: Segmentation of Predicted Pneumothorax (+) Patients")
-    # extracting positive only predictions
-    test_ids = np.array([Path(fpath).stem for fpath in test_fpaths])
-    seg_ids = test_ids[np.where(sub_df["EncodedPixels"] == 1)[0]].tolist()
+    # extracting positive only ids
+    seg_ids = sub_df.loc[sub_df["EncodedPixels"] == 1, "ImageId"].tolist()
     x_test = np.asarray([load_input(fpath, img_size, channels=channels)
                          for fpath in test_fpaths if Path(fpath).stem in seg_ids])
     # squeezes are for removing the output classes dimension (1, because binary and sigmoid)
