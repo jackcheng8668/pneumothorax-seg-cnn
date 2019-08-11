@@ -57,13 +57,15 @@ def Stage2(seg_model, sub_df, test_fpaths, channels=3, img_size=256, batch_size=
         else:
             preds_seg = seg_model.predict(x_test, batch_size=batch_size).squeeze()
 
-    preds_seg[preds_seg >= threshold] = 255
-    preds_seg[preds_seg < threshold] = 0
     h_w = (preds_seg.shape[1], preds_seg.shape[2])
+    # resizing predictions if necessary
     if h_w != (1024, 1024):
         print("Resizing the predictions...")
-        preds_seg = np.asarray([cv2.resize(pred, (1024, 1024), interpolation=cv2.INTER_NEAREST).T.astype(np.uint8)
-                                for pred in tqdm(preds_seg)])
+        preds_seg = np.stack([cv2.resize(pred, (1024, 1024)).T
+                              for pred in tqdm(preds_seg)]).astype(np.uint8)
+    preds_seg[preds_seg >= threshold] = 255
+    preds_seg[preds_seg < threshold] = 0
+
     sub_df = edit_classification_df(sub_df, preds_seg, seg_ids)
     sub_df.to_csv("submission_final.csv", index=False)
 
