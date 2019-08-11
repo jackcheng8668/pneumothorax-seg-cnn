@@ -72,7 +72,7 @@ def Stage2(seg_model, sub_df, test_fpaths, channels=3, img_size=256, batch_size=
     # resizing predictions if necessary
     if h_w != (1024, 1024):
         print("Resizing the predictions...")
-        resized = []
+        resized_all = []
         for pred in tqdm(preds_seg):
             # resizing probability maps
             resized = cv2.resize(pred, (1024, 1024))
@@ -82,8 +82,8 @@ def Stage2(seg_model, sub_df, test_fpaths, channels=3, img_size=256, batch_size=
             if zero_out_small_pred:
                 resized = zero_out_thresholded_single(resized)
             # converting to rgb (int, 0-255)
-            resized.append((resized.T*255).astype(np.uint8))
-        preds_seg = np.stack(resized)
+            resized_all.append((resized.T*255).astype(np.uint8))
+        preds_seg = np.stack(resized_all)
     else:
         # thresholding
         preds_seg[preds_seg >= threshold] = 1
