@@ -9,7 +9,7 @@ from efficientnet_seg.io.utils import preprocess_input
 from functools import partial
 
 def Stage2(seg_model, sub_df, test_fpaths, channels=3, img_size=256, batch_size=32, tta=True,
-           threshold=0.5, save_pred_arr_p=True, preprocess_fn=None, **kwargs):
+           threshold=0.5, save_pred_arr_p=True, zero_out_small_pred=True, preprocess_fn=None, **kwargs):
     """
     For the second (segmentation) stage of the classification/segmentation cascade. It assumes that the
     seg_model was trained on pos-only examples.
@@ -28,6 +28,7 @@ def Stage2(seg_model, sub_df, test_fpaths, channels=3, img_size=256, batch_size=
         save_pred_arr (bool): whether or not to save the raw predicted masks. If True (default),
             the predicted masks will be saved as a numpy array in the current working
             directory.
+        zero_out_small_pred (bool): whether or not to zero out the smaller predicted ROIs.
         preprocess_fn (function): function to preprocess the test arrays with. Specify the other arguments
             with **kwargs.
     Returns:
@@ -71,13 +72,26 @@ def Stage2(seg_model, sub_df, test_fpaths, channels=3, img_size=256, batch_size=
     # resizing predictions if necessary
     if h_w != (1024, 1024):
         print("Resizing the predictions...")
-        preds_seg = np.stack([cv2.resize(pred, (1024, 1024)).T
-                              for pred in tqdm(preds_seg)])
-    # thresholding
-    preds_seg[preds_seg >= threshold] = 255
-    preds_seg[preds_seg < threshold] = 0
-    # converting to int
-    preds_seg = preds_seg.astype(np.uint8)
+        resized = []
+        for pred in tqdm(preds_seg):
+            # resizing probability maps
+            resized = cv2.resize(pred, (1024, 1024))
+            # thresholding to do zeroing out
+            resized[resized >= threshold] = 1
+            resized[resized < threshold] = 0
+            if zero_out_small_pred:
+                resized = zero_out_thresholded_single(resized)
+            # converting to rgb (int, 0-255)
+            resized.append((resized.T*255).astype(np.uint8))
+        preds_seg = np.stack(resized)
+    else:
+        # thresholding
+        preds_seg[preds_seg >= threshold] = 1
+        preds_seg[preds_seg < threshold] = 0
+        # zero out smaller regions
+        if zero_out_small_pred:
+            preds_seg = zero_out_thresholded_all(preds_seg)
+        preds_seg = (preds_seg.T*255).astype(np.uint8)
 
     sub_df = edit_classification_df(sub_df, preds_seg, seg_ids)
     sub_df.to_csv("submission_final.csv", index=False)
@@ -123,3 +137,20 @@ def edit_classification_df(df, preds_seg, p_ids):
     # handling empty masks
     df.loc[df.EncodedPixels=="", "EncodedPixels"] = "-1"
     return df
+
+def zero_out_thresholded_all(thresholded):
+    """
+    Zeros out small predicted ROIs in thresholded stacked images with shape: (n, x, y)
+    """
+    for idx, arr in enumerate(thresholded):
+        thresholded[idx] = zero_out_thresholded_single(arr)
+    return thresholded
+
+def zero_out_thresholded_single(thresholded):
+    """
+    Zeros out small ROIs in thresholded single images with shape: (x, y)
+    """
+    # single images (x, y)
+    if thresholded.sum() < 1024*2:
+        thresholded[:] = 0
+    return thresholded
