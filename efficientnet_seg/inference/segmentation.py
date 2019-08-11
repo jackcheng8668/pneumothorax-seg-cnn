@@ -1,5 +1,6 @@
 import numpy as np
 import cv2
+import os
 from tqdm import tqdm
 from pathlib import Path
 from efficientnet_seg.inference.mask_functions import *
@@ -8,7 +9,7 @@ from efficientnet_seg.io.utils import preprocess_input
 from functools import partial
 
 def Stage2(seg_model, sub_df, test_fpaths, channels=3, img_size=256, batch_size=32, tta=True,
-           threshold=0.5, preprocess_fn=None, **kwargs):
+           threshold=0.5, save_pred_arr_p=True, preprocess_fn=None, **kwargs):
     """
     For the second (segmentation) stage of the classification/segmentation cascade. It assumes that the
     seg_model was trained on pos-only examples.
@@ -23,6 +24,10 @@ def Stage2(seg_model, sub_df, test_fpaths, channels=3, img_size=256, batch_size=
         img_size (int): The size of each square input image. Defaults to 256.
         batch_size (int): model prediction batch size
         tta (boolean): whether or not to apply test-time augmentation.
+        threshold (float): Value to threshold the predicted probabilities at
+        save_pred_arr (bool): whether or not to save the raw predicted masks. If True (default),
+            the predicted masks will be saved as a numpy array in the current working
+            directory.
         preprocess_fn (function): function to preprocess the test arrays with. Specify the other arguments
             with **kwargs.
     Returns:
@@ -57,14 +62,22 @@ def Stage2(seg_model, sub_df, test_fpaths, channels=3, img_size=256, batch_size=
         else:
             preds_seg = seg_model.predict(x_test, batch_size=batch_size).squeeze()
 
+    if save_pred_arr_p:
+        save_arr_path = os.path.join(os.getcwd(), "predicted_probability_masks.npy")
+        np.save(save_arr_path, preds_seg)
+        print("Saved the probability maps at {0}".format(save_arr_path))
+
     h_w = (preds_seg.shape[1], preds_seg.shape[2])
     # resizing predictions if necessary
     if h_w != (1024, 1024):
         print("Resizing the predictions...")
         preds_seg = np.stack([cv2.resize(pred, (1024, 1024)).T
-                              for pred in tqdm(preds_seg)]).astype(np.uint8)
+                              for pred in tqdm(preds_seg)])
+    # thresholding
     preds_seg[preds_seg >= threshold] = 255
     preds_seg[preds_seg < threshold] = 0
+    # converting to int
+    preds_seg = preds_seg.astype(np.uint8)
 
     sub_df = edit_classification_df(sub_df, preds_seg, seg_ids)
     sub_df.to_csv("submission_final.csv", index=False)
