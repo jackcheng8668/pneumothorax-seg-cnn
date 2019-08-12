@@ -1,4 +1,5 @@
 import numpy as np
+import pandas as pd
 import cv2
 import os
 from tqdm import tqdm
@@ -11,8 +12,8 @@ from efficientnet_seg.io.utils import preprocess_input
 from efficientnet_seg.inference.segmentation import TTA_Segmentation_All, zero_out_thresholded_single
 
 def SegmentationOnlyInference(seg_model, test_fpaths, channels=3, img_size=256, batch_size=32,
-                              fpaths_batch_size=320, tta=True, threshold=0.5, preprocess_fn=None,
-                              **kwargs):
+                              fpaths_batch_size=320, tta=True, threshold=0.5, zero_out_small_pred=True,
+                              preprocess_fn=None, **kwargs):
     """
     For segmentation-only pipelines.
 
@@ -29,6 +30,7 @@ def SegmentationOnlyInference(seg_model, test_fpaths, channels=3, img_size=256, 
             Adjust this parameter when you're ensembling or doing TTA (memory-intensive).
         tta (boolean): whether or not to apply test-time augmentation.
         threshold (float): Value to threshold the predicted probabilities at
+        zero_out_small_pred (bool): whether or not to zero out the smaller predicted ROIs.
         preprocess_fn (function): function to preprocess the test arrays with. Specify the other arguments
             with **kwargs.
     Returns:
@@ -37,12 +39,12 @@ def SegmentationOnlyInference(seg_model, test_fpaths, channels=3, img_size=256, 
     # default just converts the input from int -> flaot
     preprocess_fn = partial(preprocess_input, model_name=None) if preprocess_fn is None else preprocess_fn
     # Stage 2: Segmentation
-    print("Commencing Stage 2: Segmentation of Predicted Pneumothorax (+) Patients")
+    print("Commencing the Segmentation of All Test Patients...")
     # assuming full dataset cannot fit into memory
     ## batching test_fpaths; # preserves order
     test_fpaths_batched = batch_test_fpaths(test_fpaths, batch_size=fpaths_batch_size)
     rles = []
-    for fpaths_batch in test_fpaths_batch:
+    for fpaths_batch in test_fpaths_batched:
         x_test = np.asarray([load_input(fpath, img_size, channels=channels)
                              for fpath in fpaths_batch])
         x_test = preprocess_fn(x_test, **kwargs)
@@ -63,7 +65,7 @@ def SegmentationOnlyInference(seg_model, test_fpaths, channels=3, img_size=256, 
                 arr = zero_out_thresholded_single(arr)
             # converting to rgb (int, 0-255) and transposing
             arr = (arr.T*255).astype(np.uint8)
-            rles.append(mask2rle(pred, 1024, 1024))
+            rles.append(mask2rle(arr, 1024, 1024))
     # creating list of str ids (fname without the .dicom or .png)
     test_ids = [Path(fpath).stem for fpath in test_fpaths]
     sub_df = create_sub_from_rles(rles, test_ids)
@@ -85,7 +87,7 @@ def create_sub_from_rles(rles, test_ids):
     # handling empty masks
     save_path = os.path.join(os.getcwd(), "submission_segmentation_only.csv")
     sub_df.to_csv(save_path, index=False)
-    print("Classification csv saved at {0}".format(save_path))
+    print("Segmentation-only csv saved at {0}".format(save_path))
     return sub_df
 
 def run_seg_prediction(x_test, seg_model, batch_size=32, tta=True):
