@@ -176,7 +176,7 @@ class SnapshotCallbackBuilder:
             callbacks.ModelCheckpoint("./keras.model", monitor=monitor,
                                    mode=mode, save_best_only=True, verbose=1),
             swa,
-            callbacks.LearningRateScheduler(schedule=self._cosine_anneal_schedule)
+            callbacks.LearningRateScheduler(schedule=self._cosine_anneal_schedule, verbose=1)
         ]
 
         return callback_list
