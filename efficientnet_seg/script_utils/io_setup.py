@@ -137,12 +137,3 @@ def save_to_json(file, fpath):
     print("Saving {0}".format(fpath))
     with open(fpath, "w") as fp:
         json.dump(file, fp)
-
-def load_json(fpath):
-    """
-    Loads a .json file from fpath. Used to load the fold.json files.
-    """
-    print("Loading {0}".format(fpath))
-    with open(fpath, "r") as fp:
-        fpaths_dict = json.load(fp)
-    return fpaths_dict

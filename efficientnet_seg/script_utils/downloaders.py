@@ -10,6 +10,7 @@ NIH_WEIGHTS = {"densenet": ("DenseNet169_NIH15_Px448.h5", "1DWCsF3fPkTqHDdgsZSKl
 # For 90 10 00 splits
 FOLDS = {"1": "1omgOgJk-Mw15ney7q-BpxCX7PBiiWt8n",
          "2": "1CapIIXTv7GnuHa3l0JQT3kEbtHuhViAP",
+         "3": "1DOXyEFpvtS1q-A1C9SKq1fc__YgKSqtc",
         }
 
 def download_nih_weights(model_name="densenet"):
@@ -40,8 +41,10 @@ def download_and_open_fold(fold=1):
     fold_fname = "fold{0}_901000.json".format(fold)
     f_id = FOLDS[fold]
     fpath = os.path.join(os.getcwd(), fold_fname)
-    gdd.download_file_from_google_drive(file_id=f_id, dest_path=fpath,
-                                        overwrite=False, unzip=False)
+    # no need to be redundant and download it again if the .json exists
+    if not os.path.exists(fpath):
+        gdd.download_file_from_google_drive(file_id=f_id, dest_path=fpath,
+                                            overwrite=False, unzip=False)
     print("Loading from json...")
     with open(fold_fname, "r") as fp:
         fpaths_dict = json.load(fp)
