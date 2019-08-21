@@ -9,7 +9,7 @@ from efficientnet_seg.inference.utils import load_input
 from efficientnet_seg.io.generators_grayscale import preprocess_input
 
 def Stage1(classification_model, test_fpaths, channels=3, img_size=256, batch_size=32, tta=True,
-           threshold=0.5, model_name=None, save_p=True):
+           threshold=0.5, model_name=None, save_p=True, preprocess_fn=None, **kwargs):
     """
     For the first (classification) stage of the classification/segmentation cascade. It assumes that the
     classification_model was trained on the regular dataset.
@@ -28,15 +28,18 @@ def Stage1(classification_model, test_fpaths, channels=3, img_size=256, batch_si
         model_name (str): Either 'densenet', 'inception', or 'xception' to specify the preprocessing method
         save_p (bool): whether or not to save the classification probabilties. If True, probabilities are saved
             as a .csv file at cwd/classification_probabilties.csv
+        preprocess_fn (function): function to preprocess the test arrays with. Specify the other arguments
+            with **kwargs.
     Returns:
         sub_df (pd.DataFrame): the classification submission data frame (Encoded pixels are 1/-1 for pneumothorax/no pneumothorax).
     """
+    # default just converts the input from int -> flaot
+    preprocess_fn = partial(preprocess_input, model_name=model_name) if preprocess_fn is None else preprocess_fn
     # Stage 1: Classification predictions
     print("Commencing Stage 1: Prediction of Pneumothorax or No Pneumothorax Patients")
     # Load test set
     x_test = np.asarray([load_input(fpath, img_size, channels=channels) for fpath in test_fpaths])
-    if model_name is not None:
-        x_test = preprocess_input(x_test, model_name)
+    x_test = preprocess_fn(x_test, **kwargs)
     ## Hacky fix for binary cases where the output is (N, 1)
     ### Prevents lists being saved as nested lists
     if tta:
