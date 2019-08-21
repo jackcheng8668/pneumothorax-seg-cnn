@@ -27,7 +27,7 @@ def create_fold_and_move(train_dir, save_dir, mask_df, fold=1, split_seed=10, ad
     Returns:
         fold_dict (dict): dictionary of `train` and `val` filepaths
     """
-    train_fn, val_fn = create_train_val_split(train_dir, mask_df, split_seed=10):
+    train_fn, val_fn = create_train_val_split(train_dir, mask_df, split_seed=10)
     move_files_post_split(train_fn, val_fn, save_dir)
     # for nicer batch sizes
     train_im_path, val_im_path = join(save_dir, "keras_im_train"), join(save_dir, "keras_im_val")
@@ -54,8 +54,8 @@ def move_files_post_split(train_fn, val_fn, save_dir):
     images and masks after splitting. These directories are: keras_im_train, keras_im_val,
     keras_mask_train, keras_mask_val.
     Args:
-        train_fn (list): list of training filepaths pre-split. Refer to the `train_fn` output of `create_train_val_split`.
-        val_fn (list): list of validation filepaths pre-split. Refer to the `val_fn` output of `create_train_val_split`
+        train_fn (list): list of training filepaths before moving. Refer to the `train_fn` output of `create_train_val_split`.
+        val_fn (list): list of validation filepaths before moving. Refer to the `val_fn` output of `create_train_val_split`
         save_dir (str): path to the directory to move all of the training/validation directories to
     Returns:
         None
