@@ -29,7 +29,7 @@ def create_fold_and_move(train_dir, save_dir, mask_df, fold=1, split_seed=10, ad
     Returns:
         fold_dict (dict): dictionary of `train` and `val` filepaths
     """
-    train_fn, val_fn = create_train_val_split(train_dir, mask_df, split_seed=10)
+    train_fn, val_fn = create_train_val_split(train_dir, mask_df, split_seed=split_seed)
     move_files_post_split(train_fn, val_fn, save_dir)
     # for nicer batch sizes
     train_im_path, val_im_path = join(save_dir, "keras_im_train"), join(save_dir, "keras_im_val")
