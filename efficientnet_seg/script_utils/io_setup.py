@@ -1,14 +1,16 @@
 import shutil
 import os
+import json
+import pandas as pd
+import numpy as np
+
 from glob import glob
 from pathlib import Path
 from sklearn.model_selection import train_test_split
 from os.path import join
-
-import pandas as pd
-import numpy as np
 from PIL import Image
 from tqdm import tqdm
+
 
 def create_fold_and_move(train_dir, save_dir, mask_df, fold=1, split_seed=10, adjust_n_files=True):
     """
@@ -39,8 +41,8 @@ def create_fold_and_move(train_dir, save_dir, mask_df, fold=1, split_seed=10, ad
         val_fpaths = val_fpaths[:-12] # 1056
     fold_dict = {"train": train_fpaths, "val": val_fpaths}
 
-    print("No. of train files: {0}".format(len(train_fn)))
-    print("No. of val files: {0}".format(len(val_fn)))
+    print("No. of train files: {0}".format(len(train_fpaths)))
+    print("No. of val files: {0}".format(len(val_fpaths)))
 
     fold_fname = "fold{0}_901000.json".format(fold)
     # saving the fold .json if it doesn't already exist
@@ -143,3 +145,4 @@ def load_json(fpath):
     print("Loading {0}".format(fpath))
     with open(fpath, "r") as fp:
         fpaths_dict = json.load(fp)
+    return fpaths_dict
