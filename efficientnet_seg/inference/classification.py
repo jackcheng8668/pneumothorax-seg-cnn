@@ -7,11 +7,12 @@ from tqdm import tqdm
 from functools import partial
 
 from efficientnet_seg.io.data_aug import data_augmentation
-from efficientnet_seg.inference.utils import load_input
-from efficientnet_seg.io.generators_grayscale import preprocess_input
+from efficientnet_seg.inference.utils import load_input, batch_test_fpaths
+from efficientnet_seg.io.utils import preprocess_input
 
-def Stage1(classification_model, test_fpaths, channels=3, img_size=256, batch_size=32, tta=True,
-           threshold=0.5, model_name=None, save_p=True, preprocess_fn=None, **kwargs):
+def Stage1(classification_model, test_fpaths, channels=3, img_size=256, batch_size=32,
+           fpaths_batch_size=320, tta=True, threshold=0.5, model_name=None,
+           save_p=True, preprocess_fn=None, **kwargs):
     """
     For the first (classification) stage of the classification/segmentation cascade. It assumes that the
     classification_model was trained on the regular dataset.
@@ -24,6 +25,8 @@ def Stage1(classification_model, test_fpaths, channels=3, img_size=256, batch_si
         channels (int): The number of input channels. Defaults to 3.
         img_size (int): The size of each square input image. Defaults to 256.
         batch_size (int): model prediction batch size
+        fpaths_batch_size (int): number of images to load into memory at a time.
+            Adjust this parameter when you're ensembling or doing TTA (memory-intensive).
         tta (boolean): whether or not to apply test-time augmentation.
         threshold (float): threshold for the predicted arrays where
             anything >= threshold = 255 and anything < threshold = 0. Defaults to 0.5.
@@ -40,27 +43,17 @@ def Stage1(classification_model, test_fpaths, channels=3, img_size=256, batch_si
     # Stage 1: Classification predictions
     print("Commencing Stage 1: Prediction of Pneumothorax or No Pneumothorax Patients")
     # Load test set
-    x_test = np.asarray([load_input(fpath, img_size, channels=channels) for fpath in test_fpaths])
-    x_test = preprocess_fn(x_test, model_name=model_name, **kwargs)
-    ## Hacky fix for binary cases where the output is (N, 1)
-    ### Prevents lists being saved as nested lists
-    if tta:
-        # ensembling with TTA
-        if isinstance(classification_model, (list, tuple)):
-            # stacking across the batch_size dimension
-            preds_classify = np.mean(np.stack([TTA_Classification_All(model_, x_test, batch_size=batch_size)
-                                          for model_ in classification_model]), axis=0).flatten()
-        else:
-            preds_classify = TTA_Classification_All(classification_model, x_test, n_iter=4, batch_size=batch_size).flatten()
-    else:
-        # ensembling without TTA
-        if isinstance(classification_model, (list, tuple)):
-            # stacking across the batch_size dimension
-            preds_seg = np.mean(np.stack([model_.predict(x_test, batch_size=batch_size)
-                                          for model_ in classification_model]), axis=0).flatten()
-        else:
-            preds_classify = classification_model.predict(x_test, batch_size=batch_size).flatten()
-
+    ## batching test_fpaths; # preserves order
+    test_fpaths_batched = batch_test_fpaths(test_fpaths, batch_size=fpaths_batch_size)
+    print("{0} file batches with sizes {1}".format(len(test_fpaths_batched), [len(batch) for batch in batch_test_fpaths]))
+    preds_classify = np.array([])
+    for fpaths_batch in test_fpaths_batched:
+        x_test = np.asarray([load_input(fpath, img_size, channels=channels) for fpath in fpaths_batch])
+        x_test = preprocess_fn(x_test, model_name=model_name, **kwargs)
+        preds_classify_batch = run_classification_prediction(x_test, classification_model, batch_size=batch_size, tta=tta)
+        # appending -> flattening
+        preds_classify = np.append([preds_classify, preds_classify_batch])
+    # creating our df
     test_ids = [Path(fpath).stem for fpath in test_fpaths] # for the df
     if save_p:
         from efficientnet_seg.inference.ensemble_df import create_classification_p_df
@@ -88,8 +81,41 @@ def create_thresholded_classification_csv(pred_arr, test_ids, threshold=0.5):
     # creating first df
     sub_df = pd.DataFrame({"ImageId": test_ids, "EncodedPixels": preds_classify})
     sub_df.to_csv("submission_classification.csv", index=False)
-    print("Classification csv saved at {0}".format(os.path.join(os.getcwd(), "submission_classification")))
+    print("Classification csv saved at {0}".format(os.path.join(os.getcwd(), "submission_classification.csv")))
     return sub_df
+
+def run_classification_prediction(x_test, classification_model, batch_size=32, tta=True):
+    """
+    Handles raw classification model prediction. Supports TTA and ensembling.
+    Args:
+        x_test (np.ndarray): shape (n, x, y, n_channels)
+        classification_model (a single tf.keras.model.Model or keras.model.Model or a list of them): assumes
+            that they all need the same input. When `classification_model` is a list/tuple, the models are
+            ensembled (predictions are averaged.)
+        batch_size (int): model prediction batch size
+        tta (boolean): whether or not to apply test-time augmentation.
+    Returns:
+        preds_classify (np.ndarray): shape (n, 1); assumes prediction channel is 1.
+    """
+    ## Hacky fix for binary cases where the output is (N, 1)
+    ### Prevents lists being saved as nested lists
+    if tta:
+        # ensembling with TTA
+        if isinstance(classification_model, (list, tuple)):
+            # stacking across the batch_size dimension
+            preds_classify = np.mean(np.stack([TTA_Classification_All(model_, x_test, batch_size=batch_size)
+                                          for model_ in classification_model]), axis=0).flatten()
+        else:
+            preds_classify = TTA_Classification_All(classification_model, x_test, n_iter=4, batch_size=batch_size).flatten()
+    else:
+        # ensembling without TTA
+        if isinstance(classification_model, (list, tuple)):
+            # stacking across the batch_size dimension
+            preds_classify = np.mean(np.stack([model_.predict(x_test, batch_size=batch_size)
+                                               for model_ in classification_model]), axis=0).flatten()
+        else:
+            preds_classify = classification_model.predict(x_test, batch_size=batch_size).flatten()
+    return preds_classify
 
 def TTA_Classification_All(model, test_arrays, n_iter=4, batch_size=32, seed=88):
     """
