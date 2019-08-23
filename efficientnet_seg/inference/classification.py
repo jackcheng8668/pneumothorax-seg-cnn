@@ -40,8 +40,6 @@ def Stage1(classification_model, test_fpaths, channels=3, img_size=256, batch_si
     Returns:
         sub_df (pd.DataFrame): the classification submission data frame (Encoded pixels are 1/-1 for pneumothorax/no pneumothorax).
     """
-    # default just converts the input from int -> flaot
-    preprocess_fn = partial(preprocess_input, model_name=model_name) if preprocess_fn is None else preprocess_fn
     # Stage 1: Classification predictions
     print("Commencing Stage 1: Prediction of Pneumothorax or No Pneumothorax Patients")
     # Load test set
@@ -55,7 +53,8 @@ def Stage1(classification_model, test_fpaths, channels=3, img_size=256, batch_si
         # predictions (with/without TTA)
         preds_classify_batch = run_classification_prediction(x_test, classification_model,
                                                              batch_size=batch_size, tta=tta,
-                                                             n_tta_iter_per_image=n_tta_iter_per_image)
+                                                             n_tta_iter_per_image=n_tta_iter_per_image,
+                                                             preprocess_fn=preprocess_fn, **kwargs)
         # appending -> flattening
         preds_classify = np.append([preds_classify, preds_classify_batch])
     # creating our df
@@ -85,11 +84,13 @@ def create_thresholded_classification_csv(pred_arr, test_ids, threshold=0.5):
     preds_classify = [int(pred) for pred in pred_arr.tolist()]
     # creating first df
     sub_df = pd.DataFrame({"ImageId": test_ids, "EncodedPixels": preds_classify})
-    sub_df.to_csv("submission_classification.csv", index=False)
-    print("Classification csv saved at {0}".format(os.path.join(os.getcwd(), "submission_classification.csv")))
+    save_path = os.path.join(os.getcwd(), "submission_classification.csv")
+    sub_df.to_csv(save_path, index=False)
+    print("Classification csv saved at {0}.".format(save_path))
     return sub_df
 
-def run_classification_prediction(x_test, classification_model, batch_size=32, tta=True, n_tta_iter_per_image=4):
+def run_classification_prediction(x_test, classification_model, batch_size=32, tta=True,
+                                  n_tta_iter_per_image=4, preprocess_fn=None, **kwargs):
     """
     Handles raw classification model prediction. Supports TTA and ensembling.
     Args:
@@ -101,6 +102,8 @@ def run_classification_prediction(x_test, classification_model, batch_size=32, t
         tta (boolean): whether or not to apply test-time augmentation.
         n_tta_iter_per_image (int): number of iterations of test-time augmentation with
             `data_aug.data_augmentation`. Defaults to 4.
+        preprocess_fn (function): function to preprocess the test arrays with. Specify the other arguments
+            with **kwargs. However, it must have the argument for x_test and the argument,`model_name`.
     Returns:
         preds_classify (np.ndarray): shape (n, 1); assumes prediction channel is 1.
     """
@@ -110,10 +113,11 @@ def run_classification_prediction(x_test, classification_model, batch_size=32, t
         # ensembling with TTA
         if isinstance(classification_model, (list, tuple)):
             # stacking across the batch_size dimension
-            preds_classify = np.stack([TTA_Classification_All(model_, x_test, n_iter=n_tta_iter_per_image,
-                                       batch_size=batch_size) for model_ in classification_model])
+            preds_classify = [TTA_Classification_All(model_, x_test, n_iter=n_tta_iter_per_image,
+                              batch_size=batch_size, preprocess_fn=None, **kwargs)
+                              for model_ in classification_model]
             # ensembling by averaging
-            preds_classify = np.mean(preds_classify, axis=0).flatten()
+            preds_classify = np.mean(np.stack(preds_classify), axis=0).flatten()
         else:
             preds_classify = TTA_Classification_All(classification_model, x_test, n_iter=n_tta_iter_per_image,
                                                     batch_size=batch_size).flatten()
@@ -127,15 +131,15 @@ def run_classification_prediction(x_test, classification_model, batch_size=32, t
             preds_classify = classification_model.predict(x_test, batch_size=batch_size).flatten()
     return preds_classify
 
-def TTA_Classification_All(model, test_arrays, n_iter=4, batch_size=32, seed=88):
+def TTA_Classification_All(model, test_arrays, n_iter=4, batch_size=32, seed=88, preprocess_fn=None, **kwargs):
     """
     Thin wrapper around for TTA Classification for TTA on all images instead of per image.
     """
     print("TTA for classification...")
-    return np.asarray([TTA_Classification(model, test_arr, n_iter=n_iter, batch_size=batch_size, seed=seed)
-                       for test_arr in tqdm(test_arrays)])
+    return np.asarray([TTA_Classification(model, test_arr, n_iter=n_iter, batch_size=batch_size,
+                       seed=seed, preprocess_fn=preprocess_fn, **kwargs) for test_arr in tqdm(test_arrays)])
 
-def TTA_Classification(model, test_array, n_iter=4, batch_size=32, seed=88):
+def TTA_Classification(model, test_array, n_iter=4, batch_size=32, seed=88, preprocess_fn=None, **kwargs):
     """
     Test-time augmentation with array inversion, horizontal and vertical flipping,
     gaussian smoothing, random rotations, and random zooms.
@@ -144,6 +148,9 @@ def TTA_Classification(model, test_array, n_iter=4, batch_size=32, seed=88):
         model (instance of keras.models.Model): should predict an array with shape (N, n_classes)
         test_array (np.ndarray): shape of (H, W, C)
         batch_size: the batch size for prediction
+        seed (int): desired seed for the data aug
+        preprocess_fn (function): function to preprocess the test arrays with. Specify the other arguments
+            with **kwargs. However, it must have the argument for x_test and the argument,`model_name`.
     Returns:
         preds_test (np.ndarray): predicted probability for test_array (n_classes,)
     """
@@ -167,8 +174,10 @@ def TTA_Classification(model, test_array, n_iter=4, batch_size=32, seed=88):
         inverted_img_array[each_iter+1] = data_augmentation(inverted_img)[0] # no mask
         hflipped_img_array[each_iter+1] = data_augmentation(hflipped_img)[0] # no mask
     tmp_array = np.vstack((original_img_array, inverted_img_array, hflipped_img_array))
-    # preprocessing // for now, no preprocessing
-    # tmp_array = preprocess_input(tmp_array, model_name)
+    # preprocessing
+    # default just converts the input from int -> flaot vvvvvvvvvvvvvvvvvvv
+    preprocess_fn = partial(preprocess_input, model_name=model_name) if preprocess_fn is None else preprocess_fn
+    tmp_array = preprocess_fn(tmp_array, model_name, **kwargs)
 
     n_classes = int(model.get_output_at(-1).get_shape()[1])
     prediction = np.mean(model.predict(tmp_array), axis=0)
