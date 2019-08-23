@@ -43,25 +43,7 @@ def Stage2(seg_model, sub_df, test_fpaths, channels=3, img_size=256, batch_size=
     x_test = np.asarray([load_input(fpath, img_size, channels=channels)
                          for fpath in test_fpaths if Path(fpath).stem in seg_ids])
     x_test = preprocess_fn(x_test, **kwargs)
-    # squeezes are for removing the output classes dimension (1, because binary and sigmoid)
-    if tta:
-        # ensembling with TTA
-        if isinstance(seg_model, (list, tuple)):
-            # stacking across the batch_size dimension
-            print("Ensembling the models with TTA...")
-            preds_seg = np.mean(np.stack([TTA_Segmentation_All(model_, x_test, batch_size=batch_size)
-                                          for model_ in tqdm(seg_model)]), axis=0).squeeze()
-        else:
-            preds_seg = TTA_Segmentation_All(seg_model, x_test, batch_size=batch_size).squeeze()
-    else:
-        # ensembling without TTA
-        if isinstance(seg_model, (list, tuple)):
-            # stacking across the batch_size dimension
-            print("Ensembling the models...")
-            preds_seg = np.mean(np.stack([model_.predict(x_test, batch_size=batch_size)
-                                          for model_ in tqdm(seg_model)]), axis=0).squeeze()
-        else:
-            preds_seg = seg_model.predict(x_test, batch_size=batch_size).squeeze()
+    preds_seg = run_seg_prediction(x_test, seg_model, batch_size=batch_size, tta=tta)
 
     if save_pred_arr_p:
         save_arr_path = os.path.join(os.getcwd(), "predicted_probability_masks.npy")
@@ -118,6 +100,40 @@ def TTA_Segmentation_All(model, test_arrays, batch_size=32):
     preds_test_tta = np.asarray([np.fliplr(x) for x in preds_test_tta])
     preds_test = np.mean([preds_test, preds_test_tta], axis=0)
     return preds_test
+
+def run_seg_prediction(x_test, seg_model, batch_size=32, tta=True):
+    """
+    Handles raw model prediction. Supports TTA and ensembling.
+    Args:
+        x_test (np.ndarray): shape (n, x, y, n_channels)
+        seg_model (a single tf.keras.model.Model or keras.model.Model or a list of them): assumes
+            that they all need the same input. When `seg_model` is a list/tuple, the models are
+            ensembled (predictions are averaged.)
+        batch_size (int): model prediction batch size
+        tta (boolean): whether or not to apply test-time augmentation.
+    Returns:
+        preds_seg (np.ndarray): shape (n, x, y); assumes prediction channel is 1, which is squeezed.
+    """
+    # squeezes are for removing the output classes dimension (1, because binary and sigmoid)
+    if tta:
+        # ensembling with TTA
+        if isinstance(seg_model, (list, tuple)):
+            # stacking across the batch_size dimension
+            print("Ensembling the models with TTA...")
+            preds_seg = np.mean(np.stack([TTA_Segmentation_All(model_, x_test, batch_size=batch_size)
+                                          for model_ in tqdm(seg_model)]), axis=0).squeeze()
+        else:
+            preds_seg = TTA_Segmentation_All(seg_model, x_test, batch_size=batch_size).squeeze()
+    else:
+        # ensembling without TTA
+        if isinstance(seg_model, (list, tuple)):
+            # stacking across the batch_size dimension
+            print("Ensembling the models...")
+            preds_seg = np.mean(np.stack([model_.predict(x_test, batch_size=batch_size)
+                                          for model_ in tqdm(seg_model)]), axis=0).squeeze()
+        else:
+            preds_seg = seg_model.predict(x_test, batch_size=batch_size).squeeze()
+    return preds_seg
 
 def edit_classification_df(df, preds_seg, p_ids):
     """

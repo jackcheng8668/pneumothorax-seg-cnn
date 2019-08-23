@@ -14,7 +14,7 @@ from efficientnet_seg.models.grayscale.inception_resnet_v2 import InceptionResNe
 from efficientnet_seg.script_utils.downloaders import download_nih_weights, NIH_WEIGHTS
 
 def load_pretrained_classification_model(model_name="efficientnet", input_shape=None,
-                                        dropout=None, pretrained="imagenet"):
+                                         dropout=None, pretrained="imagenet"):
     """
     Creates a classification model from pretrained models that are located in this repository.
     Assumes that we are doing a binary classification task with sigmoid (average pooling at the end).
@@ -38,17 +38,14 @@ def load_pretrained_classification_model(model_name="efficientnet", input_shape=
                                  "xception": {"base_model": Xception, "input_shape": (320, 320, 1)},
                                 }
     model_name = model_name.lower()
-    # downloading weights (or just setting up a quick heads up for efficientnet users)
-    if model_name == "efficientnet":
-        # NIH pretrained weights are not available for the EfficientNetB4
-        assert pretrained == "imagenet" or pretrained is None, "NIH pretrained weights are not available for the EfficientNetB4.\
-                                                                Please change `pretrained` to one of None or `imagenet`"
-        print("Using ImageNet pretrained weights.")
-    else:
+    if pretrained == "nih":
+        assert model_name != "efficientnet", "NIH pretrained weights are not available for the EfficientNetB4.\
+                                              Please change `pretrained` to one of None or `imagenet`"
         # Downloading the NIH pretrained weights
         download_nih_weights(model_name=model_name)
         # setting the path to the pretrained weights
         pretrained = NIH_WEIGHTS[model_name][0]
+
     # setting up some common reused parameters
     if input_shape is None:
         input_shape = default_models_and_shapes[model_name]["input_shape"]

@@ -80,7 +80,7 @@ def ensemble_classification_from_df(df_path_list, threshold=0.5):
         ensembled_dict["ImageId"].append(id_), ensembled_dict["EncodedPixels"].append(p_thresholded)
     ensembled_df = pd.DataFrame(ensembled_dict)
     ensemble_csv_path = os.path.join(os.getcwd(), "ensembled_classification.csv")
-    ensembled_df.to_csv(ensemble_csv_path)
+    ensembled_df.to_csv(ensemble_csv_path, index=False)
     print("Ensembled classification predictions saved at {0}".format(ensemble_csv_path))
     return ensembled_df
 

@@ -1,5 +1,7 @@
 import numpy as np
 
+from skimage.transform import resize
+
 def scale(x, model_name=None):
     # scaling input to [0, 1]
     return (x-x.min()) / (x.max() - x.min())
@@ -45,3 +47,24 @@ def preprocess_input(x, model_name):
             elif x.shape[-1] == 1:
                 x[..., 0] -= 115.799
     return x
+
+def resize_and_preprocess(arr, model_name):
+    """
+    Resizes then preprocess the input, arr, based on model_name.
+    Args:
+        arr (np.ndarray): with shape (n_images, ....). Here, we assume arr is
+            going to be downsampled.
+        model_name (str): one of `efficientnet`, `densenet`, `inception`, or
+            `xception`.
+    Returns:
+        resized + preprocessed input based on model_name.
+    """
+    default_shapes = {"efficientnet": (256, 256, 3),
+                      "densenet": (448, 448, 1),
+                      "inception": (256, 256, 1),
+                      "xception": (320, 320, 1),}
+    shape = default_shapes[model_name]
+    batch_size = arr.shape[0]
+    out_size = (batch_size,)+shape
+    resized = resize(arr, out_size, order=1, preserve_range=True, anti_aliasing=True)
+    return preprocess_input(resized, model_name)
