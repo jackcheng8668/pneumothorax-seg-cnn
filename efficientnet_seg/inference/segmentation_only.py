@@ -85,6 +85,7 @@ def create_sub_from_rles(rles, test_ids):
     # creating segmentation rle df
     sub_df = pd.DataFrame({"ImageId": test_ids, "EncodedPixels": rles})
     # handling empty masks
+    sub_df.loc[sub_df.EncodedPixels=="", "EncodedPixels"] = "-1"
     save_path = os.path.join(os.getcwd(), "submission_segmentation_only.csv")
     sub_df.to_csv(save_path, index=False)
     print("Segmentation-only csv saved at {0}".format(save_path))
