@@ -7,7 +7,7 @@ from pathlib import Path
 from functools import partial
 
 from efficientnet_seg.inference.mask_functions import mask2rle
-from efficientnet_seg.inference.utils import load_input
+from efficientnet_seg.inference.utils import load_input, batch_test_fpaths
 from efficientnet_seg.io.utils import preprocess_input
 from efficientnet_seg.inference.segmentation import TTA_Segmentation_All, zero_out_thresholded_single
 
@@ -123,26 +123,3 @@ def run_seg_prediction(x_test, seg_model, batch_size=32, tta=True):
         else:
             preds_seg = seg_model.predict(x_test, batch_size=batch_size).squeeze()
     return preds_seg
-
-def batch_test_fpaths(test_fpaths, batch_size=320):
-    """
-    Batch the test filepaths into a list of batched sublists of filepaths.
-    Args:
-        test_fpaths (list): of filepaths to the test images
-        batch_size (int): number of images in each sublist
-    Returns:
-        a list of lists of filepaths
-    """
-    n_splits = len(test_fpaths) // batch_size
-    def chunks(l, n):
-        """
-        https://stackoverflow.com/questions/312443/how-do-you-split-a-list-into-evenly-sized-chunks
-        For evenly splitting some list, l, into evenly sized chunks with size, n.
-        Returns:
-            generator that generates batched lists
-        """
-        n = max(1, n)
-        return (l[i:i+n] for i in range(0, len(l), n))
-    chunks_gen = chunks(test_fpaths, batch_size)
-    test_fpaths = [sublist for sublist in chunks_gen]
-    return test_fpaths
