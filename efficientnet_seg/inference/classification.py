@@ -11,8 +11,8 @@ from efficientnet_seg.inference.utils import load_input, batch_test_fpaths
 from efficientnet_seg.io.utils import preprocess_input
 
 def Stage1(classification_model, test_fpaths, channels=3, img_size=256, batch_size=32,
-           fpaths_batch_size=320, tta=True, n_tta_iter_per_image=4, threshold=0.5, model_name=None,
-           save_p=True, preprocess_fn=None, **kwargs):
+           fpaths_batch_size=320, tta=True, n_tta_iter_per_image=4, tta_then_preprocess=True,
+           threshold=0.5, model_name=None, save_p=True, preprocess_fn=None, **kwargs):
     """
     For the first (classification) stage of the classification/segmentation cascade. It assumes that the
     classification_model was trained on the regular dataset.
@@ -30,6 +30,7 @@ def Stage1(classification_model, test_fpaths, channels=3, img_size=256, batch_si
         tta (boolean): whether or not to apply test-time augmentation.
         n_tta_iter_per_image (int): number of iterations of test-time augmentation with
             `data_aug.data_augmentation`. Defaults to 4.
+        tta_then_preprocess (bool): whether or not to preprocess after TTA or preprocess and then TTA.
         threshold (float): threshold for the predicted arrays where
             anything >= threshold = 255 and anything < threshold = 0. Defaults to 0.5.
         model_name (str): Either 'densenet', 'inception', or 'xception' to specify the preprocessing method
@@ -40,6 +41,11 @@ def Stage1(classification_model, test_fpaths, channels=3, img_size=256, batch_si
     Returns:
         sub_df (pd.DataFrame): the classification submission data frame (Encoded pixels are 1/-1 for pneumothorax/no pneumothorax).
     """
+    # not fatal error, so we just show a quick warning message
+    # Can still run alright but it's better to just set tta_then_preprocess=False
+    if not tta and tta_then_preprocess:
+        print("Warning! Your data will not be preprocessed with `preprocess_fn` as intended \
+              because preprocessing will be done AFTER TTA, but TTA is not enabled.")
     # Stage 1: Classification predictions
     print("Commencing Stage 1: Prediction of Pneumothorax or No Pneumothorax Patients")
     # Load test set
@@ -49,7 +55,15 @@ def Stage1(classification_model, test_fpaths, channels=3, img_size=256, batch_si
     preds_classify = np.array([])
     for fpaths_batch in test_fpaths_batched:
         x_test = np.asarray([load_input(fpath, img_size, channels=channels) for fpath in fpaths_batch])
-        x_test = preprocess_fn(x_test, model_name=model_name, **kwargs)
+        if not tta_then_preprocess:
+            # preprocess -> TTA
+            # default just converts the input from int -> float vvvvvvvvvvvvvvvvvvv
+            preprocess_fn = partial(preprocess_input, model_name=model_name) if preprocess_fn is None else preprocess_fn
+            x_test = preprocess_fn(x_test, model_name=model_name, **kwargs)
+            # reset to None so it doesn't preprocess again
+            ## Not entirely true ^, it does cast the inputs from int -> float32
+            ## if need be.
+            preprocess_fn = None
         # predictions (with/without TTA)
         preds_classify_batch = run_classification_prediction(x_test, classification_model,
                                                              batch_size=batch_size, tta=tta,
