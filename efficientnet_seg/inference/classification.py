@@ -4,6 +4,8 @@ import pandas as pd
 
 from pathlib import Path
 from tqdm import tqdm
+from functools import partial
+
 from efficientnet_seg.io.data_aug import data_augmentation
 from efficientnet_seg.inference.utils import load_input
 from efficientnet_seg.io.generators_grayscale import preprocess_input
@@ -29,7 +31,7 @@ def Stage1(classification_model, test_fpaths, channels=3, img_size=256, batch_si
         save_p (bool): whether or not to save the classification probabilties. If True, probabilities are saved
             as a .csv file at cwd/classification_probabilties.csv
         preprocess_fn (function): function to preprocess the test arrays with. Specify the other arguments
-            with **kwargs.
+            with **kwargs. However, it must have the argument for x_test and the argument,`model_name`.
     Returns:
         sub_df (pd.DataFrame): the classification submission data frame (Encoded pixels are 1/-1 for pneumothorax/no pneumothorax).
     """
@@ -39,7 +41,7 @@ def Stage1(classification_model, test_fpaths, channels=3, img_size=256, batch_si
     print("Commencing Stage 1: Prediction of Pneumothorax or No Pneumothorax Patients")
     # Load test set
     x_test = np.asarray([load_input(fpath, img_size, channels=channels) for fpath in test_fpaths])
-    x_test = preprocess_fn(x_test, **kwargs)
+    x_test = preprocess_fn(x_test, model_name=model_name, **kwargs)
     ## Hacky fix for binary cases where the output is (N, 1)
     ### Prevents lists being saved as nested lists
     if tta:
