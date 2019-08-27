@@ -39,9 +39,12 @@ def Stage2(seg_model, sub_df, test_fpaths, channels=3, img_size=256, batch_size=
     # Stage 2: Segmentation
     print("Commencing Stage 2: Segmentation of Predicted Pneumothorax (+) Patients")
     # extracting positive only ids
-    seg_ids = sub_df.loc[sub_df["EncodedPixels"] == 1, "ImageId"].tolist()
+    seg_ids = sorted(sub_df.loc[sub_df["EncodedPixels"] == 1, "ImageId"].tolist())
+    x_test_fpaths = sorted([fpath for fpath in test_fpaths if Path(fpath).stem in seg_ids])
+    x_test_ids_from_fpaths = [Path(fpath).stem for fpath in x_test_fpaths]
+    assert x_test_ids_from_fpaths == seg_ids, "The x_test is loaded must match the ordering of seg_ids."
     x_test = np.asarray([load_input(fpath, img_size, channels=channels)
-                         for fpath in test_fpaths if Path(fpath).stem in seg_ids])
+                         for fpath in x_test_fpaths])
     x_test = preprocess_fn(x_test, **kwargs)
     preds_seg = run_seg_prediction(x_test, seg_model, batch_size=batch_size, tta=tta)
 
