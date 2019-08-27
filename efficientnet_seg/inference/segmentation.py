@@ -4,7 +4,7 @@ import os
 from tqdm import tqdm
 from pathlib import Path
 from efficientnet_seg.inference.mask_functions import *
-from efficientnet_seg.inference.utils import load_input
+from efficientnet_seg.inference.utils import load_input, post_process_single, post_process_all
 from efficientnet_seg.io.utils import preprocess_input
 from functools import partial
 
@@ -53,30 +53,8 @@ def Stage2(seg_model, sub_df, test_fpaths, channels=3, img_size=256, batch_size=
         np.save(save_arr_path, preds_seg)
         print("Saved the probability maps at {0}".format(save_arr_path))
 
-    h_w = (preds_seg.shape[1], preds_seg.shape[2])
-    # resizing predictions if necessary
-    if h_w != (1024, 1024):
-        print("Resizing the predictions...")
-        resized_all = []
-        for pred in tqdm(preds_seg):
-            # resizing probability maps
-            resized = cv2.resize(pred, (1024, 1024))
-            # thresholding to do zeroing out
-            resized[resized >= threshold] = 1
-            resized[resized < threshold] = 0
-            if zero_out_small_pred:
-                resized = zero_out_thresholded_single(resized)
-            # converting to rgb (int, 0-255)
-            resized_all.append((resized.T*255).astype(np.uint8))
-        preds_seg = np.stack(resized_all)
-    else:
-        # thresholding
-        preds_seg[preds_seg >= threshold] = 1
-        preds_seg[preds_seg < threshold] = 0
-        # zero out smaller regions
-        if zero_out_small_pred:
-            preds_seg = zero_out_thresholded_all(preds_seg)
-        preds_seg = (preds_seg.T*255).astype(np.uint8)
+    # thresholding and zeroing out small ROIs
+    preds_seg = post_process_all(preds_seg, threshold=threshold, min_size=3500)
 
     sub_df = edit_classification_df(sub_df, preds_seg, seg_ids)
     sub_df.to_csv("submission_final.csv", index=False)
@@ -156,20 +134,3 @@ def edit_classification_df(df, preds_seg, p_ids):
     # handling empty masks
     df.loc[df.EncodedPixels=="", "EncodedPixels"] = "-1"
     return df
-
-def zero_out_thresholded_all(thresholded):
-    """
-    Zeros out small predicted ROIs in thresholded stacked images with shape: (n, x, y)
-    """
-    for idx, arr in enumerate(thresholded):
-        thresholded[idx] = zero_out_thresholded_single(arr)
-    return thresholded
-
-def zero_out_thresholded_single(thresholded):
-    """
-    Zeros out small ROIs in thresholded single images with shape: (x, y)
-    """
-    # single images (x, y)
-    if thresholded.sum() < 1024*2:
-        thresholded[:] = 0
-    return thresholded
