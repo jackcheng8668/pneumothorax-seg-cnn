@@ -12,7 +12,7 @@ from efficientnet_seg.io.utils import preprocess_input
 from efficientnet_seg.inference.segmentation import TTA_Segmentation_All, run_seg_prediction
 
 def SegmentationOnlyInference(seg_model, test_fpaths, channels=3, img_size=256, batch_size=32,
-                              fpaths_batch_size=320, tta=True, threshold=0.5,
+                              fpaths_batch_size=320, tta=True, threshold=0.5, min_roi_size=3500,
                               preprocess_fn=None, **kwargs):
     """
     For segmentation-only pipelines.
@@ -30,6 +30,8 @@ def SegmentationOnlyInference(seg_model, test_fpaths, channels=3, img_size=256, 
             Adjust this parameter when you're ensembling or doing TTA (memory-intensive).
         tta (boolean): whether or not to apply test-time augmentation.
         threshold (float): Value to threshold the predicted probabilities at
+        min_roi_size (int): minimum number of pixels for an ROI to be left alone, instead of being
+            zeroed out. Defaults to 3500.
         preprocess_fn (function): function to preprocess the test arrays with. Specify the other arguments
             with **kwargs.
     Returns:
@@ -52,7 +54,7 @@ def SegmentationOnlyInference(seg_model, test_fpaths, channels=3, img_size=256, 
         # resizing -> threhold -> zero out small roi -> transpose + set 1s to 255 + type convert
         print("Converting predictions to the submission data frame...")
         for pred in tqdm(preds_seg):
-            arr = post_process_single(pred, threshold=threshold, min_size=3500)
+            arr = post_process_single(pred, threshold=threshold, min_size=min_roi_size)
             rles.append(mask2rle(arr, 1024, 1024))
     # creating list of str ids (fname without the .dicom or .png)
     test_ids = [Path(fpath).stem for fpath in test_fpaths]
