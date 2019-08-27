@@ -7,7 +7,7 @@ from pathlib import Path
 from functools import partial
 
 from efficientnet_seg.inference.mask_functions import mask2rle
-from efficientnet_seg.inference.utils import load_input, batch_test_fpaths
+from efficientnet_seg.inference.utils import load_input, batch_test_fpaths, post_process_single
 from efficientnet_seg.io.utils import preprocess_input
 from efficientnet_seg.inference.segmentation import TTA_Segmentation_All, run_seg_prediction, zero_out_thresholded_single
 
@@ -53,18 +53,7 @@ def SegmentationOnlyInference(seg_model, test_fpaths, channels=3, img_size=256, 
         # resizing -> threhold -> zero out small roi -> transpose + set 1s to 255 + type convert
         print("Converting predictions to the submission data frame...")
         for pred in tqdm(preds_seg):
-            # resizing probability maps
-            h_w = (pred.shape[0], pred.shape[1])
-            if h_w != (1024, 1024):
-                # resizing predictions if necessary
-                arr = cv2.resize(pred, (1024, 1024))
-            # thresholding to do zeroing out
-            arr[arr >= threshold] = 1
-            arr[arr < threshold] = 0
-            if zero_out_small_pred:
-                arr = zero_out_thresholded_single(arr)
-            # converting to rgb (int, 0-255) and transposing
-            arr = (arr.T*255).astype(np.uint8)
+            arr = post_process_single(pred, threshold=threshold, min_size=3500)
             rles.append(mask2rle(arr, 1024, 1024))
     # creating list of str ids (fname without the .dicom or .png)
     test_ids = [Path(fpath).stem for fpath in test_fpaths]
