@@ -31,9 +31,9 @@ def post_process_single(probability_mask, threshold=0.5, min_size=3500):
         predictions (np.ndarray): final thresholded and transposed mask with small ROIs zeroed out, with
             shape (1024, 1024). Max=255 and dtype=np.uint8.
     """
-    h_w = (preds_seg.shape[0], preds_seg.shape[1])
+    h_w = (probability_mask.shape[0], probability_mask.shape[1])
     if h_w != (1024, 1024):
-        probability_mask = cv2.resize(pred, (1024, 1024), interpolation=cv2.INTER_LINEAR)
+        probability_mask = cv2.resize(probability_mask, (1024, 1024), interpolation=cv2.INTER_LINEAR)
     # thresholding to 0s and 1s
     mask = cv2.threshold(probability_mask, threshold, 1, cv2.THRESH_BINARY)[1]
     num_component, component = cv2.connectedComponents(mask.astype(np.uint8))
