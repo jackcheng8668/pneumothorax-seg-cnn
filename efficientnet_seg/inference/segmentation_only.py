@@ -9,10 +9,10 @@ from functools import partial
 from efficientnet_seg.inference.mask_functions import mask2rle
 from efficientnet_seg.inference.utils import load_input, batch_test_fpaths, post_process_single
 from efficientnet_seg.io.utils import preprocess_input
-from efficientnet_seg.inference.segmentation import TTA_Segmentation_All, run_seg_prediction, zero_out_thresholded_single
+from efficientnet_seg.inference.segmentation import TTA_Segmentation_All, run_seg_prediction
 
 def SegmentationOnlyInference(seg_model, test_fpaths, channels=3, img_size=256, batch_size=32,
-                              fpaths_batch_size=320, tta=True, threshold=0.5, zero_out_small_pred=True,
+                              fpaths_batch_size=320, tta=True, threshold=0.5,
                               preprocess_fn=None, **kwargs):
     """
     For segmentation-only pipelines.
@@ -30,7 +30,6 @@ def SegmentationOnlyInference(seg_model, test_fpaths, channels=3, img_size=256, 
             Adjust this parameter when you're ensembling or doing TTA (memory-intensive).
         tta (boolean): whether or not to apply test-time augmentation.
         threshold (float): Value to threshold the predicted probabilities at
-        zero_out_small_pred (bool): whether or not to zero out the smaller predicted ROIs.
         preprocess_fn (function): function to preprocess the test arrays with. Specify the other arguments
             with **kwargs.
     Returns:

@@ -9,7 +9,7 @@ from efficientnet_seg.io.utils import preprocess_input
 from functools import partial
 
 def Stage2(seg_model, sub_df, test_fpaths, channels=3, img_size=256, batch_size=32, tta=True,
-           threshold=0.5, save_pred_arr_p=True, zero_out_small_pred=True, preprocess_fn=None, **kwargs):
+           threshold=0.5, save_pred_arr_p=True, preprocess_fn=None, **kwargs):
     """
     For the second (segmentation) stage of the classification/segmentation cascade. It assumes that the
     seg_model was trained on pos-only examples.
@@ -28,7 +28,6 @@ def Stage2(seg_model, sub_df, test_fpaths, channels=3, img_size=256, batch_size=
         save_pred_arr (bool): whether or not to save the raw predicted masks. If True (default),
             the predicted masks will be saved as a numpy array in the current working
             directory.
-        zero_out_small_pred (bool): whether or not to zero out the smaller predicted ROIs.
         preprocess_fn (function): function to preprocess the test arrays with. Specify the other arguments
             with **kwargs.
     Returns:
