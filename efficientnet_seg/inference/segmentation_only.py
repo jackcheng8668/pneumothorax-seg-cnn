@@ -11,8 +11,8 @@ from efficientnet_seg.inference.utils import load_input, batch_test_fpaths
 from efficientnet_seg.io.utils import preprocess_input
 from efficientnet_seg.inference.segmentation import TTA_Segmentation_All, run_seg_prediction, zero_out_thresholded_single
 
-def SegmentationOnlyInference(seg_model, test_fpaths, channels=3, img_size=256, batch_size=32,
-                              fpaths_batch_size=320, tta=True, threshold=0.5, zero_out_small_pred=True,
+def SegmentationOnlyInference(seg_model, seg_model2, test_fpaths, channels=3, img_size=256, img_size_2=512,
+                              batch_size=32, fpaths_batch_size=320, tta=True, threshold=0.5, zero_out_small_pred=True,
                               preprocess_fn=None, **kwargs):
     """
     For segmentation-only pipelines.
@@ -21,10 +21,14 @@ def SegmentationOnlyInference(seg_model, test_fpaths, channels=3, img_size=256, 
         seg_model (a single tf.keras.model.Model or keras.model.Model or a list of them): assumes
             that they all need the same input. When `seg_model` is a list/tuple, the models are
             ensembled (predictions are averaged.)
+        seg_model2 (a single tf.keras.model.Model or keras.model.Model or a list of them): assumes
+            that they all need the same input. When `seg_model` is a list/tuple, the models are
+            ensembled (predictions are averaged.) This corresponds to `img_size_2`
         sub_df (pd.DataFrame): A classification submission dataframe.
         test_fpaths (list or tuple): of file paths to the test images
         channels (int): The number of input channels. Defaults to 3.
         img_size (int): The size of each square input image. Defaults to 256.
+        img_size_2 (int): The size of each square input image for `seg_model2`. Defaults to 512.
         batch_size (int): model prediction batch size
         fpaths_batch_size (int): number of images to load into memory at a time.
             Adjust this parameter when you're ensembling or doing TTA (memory-intensive).
@@ -47,17 +51,21 @@ def SegmentationOnlyInference(seg_model, test_fpaths, channels=3, img_size=256, 
     for fpaths_batch in test_fpaths_batched:
         x_test = np.asarray([load_input(fpath, img_size, channels=channels)
                              for fpath in fpaths_batch])
+        x_test2 = np.asarray([load_input(fpath, img_size_2, channels=channels)
+                              for fpath in fpaths_batch])
+
         x_test = preprocess_fn(x_test, **kwargs)
+        x_test2 = preprocess_fn(x_test, **kwargs)
 
         preds_seg = run_seg_prediction(x_test, seg_model, batch_size=batch_size, tta=tta)
+        preds_seg2 = run_seg_prediction(x_test2, seg_model2, batch_size=batch_size, tta=tta)
+
         # resizing -> threhold -> zero out small roi -> transpose + set 1s to 255 + type convert
         print("Converting predictions to the submission data frame...")
-        for pred in tqdm(preds_seg):
+        for pred, pred2 in tqdm(zip(preds_seg, preds_seg2), total=preds_seg.shape[0]):
             # resizing probability maps
-            h_w = (pred.shape[0], pred.shape[1])
-            if h_w != (1024, 1024):
-                # resizing predictions if necessary
-                arr = cv2.resize(pred, (1024, 1024))
+            arr = np.mean([cv2.resize(pred, (1024, 1024)), cv2.resize(pred2, (1024, 1024))], axis=0)
+
             # thresholding to do zeroing out
             arr[arr >= threshold] = 1
             arr[arr < threshold] = 0
