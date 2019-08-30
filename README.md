@@ -1,45 +1,30 @@
-# EfficientNet for Pneumothorax Segmentation
-This repository aims to recreate the training process described in the official EfficientNet paper.
+# Convolutional Neural Networks for Pneumothorax Segmentation
+![](images/kaggle_banner.png)
+This repository contains code for my approach to the [2019 SIIM-ACR Pneumothorax Segmentation Kaggle Challenge](https://www.kaggle.com/c/siim-acr-pneumothorax-segmentation/overview). Implemented using `tensorflow.keras`.
+
+## Credits to Amazingly Helpful Kernels
+* [Preprocessed dataset](https://www.kaggle.com/iafoss/siimacr-pneumothorax-segmentation-data-256) from this [kernel](https://www.kaggle.com/iafoss/data-repack-and-image-statistics) by [lafoss](https://www.kaggle.com/iafoss)
+* [Unet Plus Plus with EfficientNet Encoder](https://www.kaggle.com/meaninglesslives/unet-plus-plus-with-efficientnet-encoder) and [Unet with EfficientNet Encoder in Keras](https://www.kaggle.com/meaninglesslives/unet-with-efficientnet-encoder-in-keras) by [Siddhartha](https://www.kaggle.com/meaninglesslives)
 
 ## Preprocessing
-The first route was simply to use the data from:
-* https://www.kaggle.com/iafoss/data-repack-and-image-statistics
-* https://www.kaggle.com/iafoss/siimacr-pneumothorax-segmentation-data-1024
-  * mean 0.521, std 0.254
-* https://www.kaggle.com/iafoss/siimacr-pneumothorax-segmentation-data-512
-  * mean 0.529, std 0.259
-* https://www.kaggle.com/iafoss/siimacr-pneumothorax-segmentation-data-256
-  * mean 0.540, std 0.264
+The only preprocessing that was done was CLAHE and rescaling the intensities to [0, 255]. The output images were converted to .png files.
 
-The only preprocessing that was done was histogram normalization and rescaling the intensities to [0, 255].
+## Solution
+`[0.8523 Public LB // 0.8980 Private (1% of test data)]`<br>
+__Note__: Models were not retrained on the stage 1 test labels.<br>
+My final solution was essentially just running the [Unet Plus Plus with EfficientNet Encoder](https://www.kaggle.com/meaninglesslives/unet-plus-plus-with-efficientnet-encoder) kernel 10 different times and ensembling the SWA snapshots with horizontal flipping for test-time augmentation and zeroing out predictions with small ROIs (`pneumothorax_seg.inference.segmentation_only.py`). There were some variations in the models I ensembled (mainly, the data augmentation), but they didn't have much impact on the overall performance across folds. Here are [the model weights I used](https://drive.google.com/open?id=11pYZOlIxk8OKERujxWQje1eTLSUB_l7I).
 
-## Baselines
+## What about the other models?
+### Classification-Segmentation Cascade
+`[Best: 0.8500 Public LB]`<br>
+With this approach, I was planning on replicating something similar to the [1st Place Solution to the RSNA Pneumonia Detection Challenge](https://www.kaggle.com/c/rsna-pneumonia-detection-challenge/discussion/70421), where they used ensembles of classification models (5 10-fold CV ensembles) in conjuction with ensembles of detection models. Both that challenge and this one used the [NIH ChestXray14 Dataset](https://www.kaggle.com/nih-chest-xrays/data), and __they also released pre-trained weights on said dataset.__
+* used binary cross entropy, Adam, SWA, and a cosine annealing LR.
+* Data augmentation was horizontal flipping, color inversion, gaussian smoothing, rotations, zooms, and random gamma ([as shown here](https://github.com/jchen42703/pneumothorax-seg-cnn/blob/master/pneumothorax_seg/io/data_aug.py))
 
-### [1] EfficientNet + UEfficientNet
-[0.7976 Public LB]
-The first baseline is a classification + segmentation cascade.
-* The classification stage is the EfficientNetB4 architecture with the same settings as the kernel below.
-  * Uses binary cross entropy & accuracy and F1-score
-* The segmentation stage comes from [this kernel](https://www.kaggle.com/meaninglesslives/unet-with-efficientnet-encoder-in-keras), which uses [albumentations](https://github.com/albu/albumentations). The data augmentation is not properly optimized.
-  * However, I changed the residual blocks so that it's LeakyReLU -> BN
-  instead of BN -> LeakyReLU.
-  * uses binary cross entropy + dice loss & mean iou for evaluation
-The baseline uses the SnapshotCallbackBuilder and Stochastic Weight Averaging.
-* Weights used:
-  * Classifier: [b4_pneumothorax_ckpoint_epoch15.model](https://drive.google.com/open?id=1P-o6CNz0nJDaDhg4Djo0Tz-f_I5RCSWn) [0.7886 Public LB]
-  * Segmentation Model: [uefficientnet_pneumothorax_pos_only_epoch70_checkpoint.model](https://drive.google.com/open?id=1w9k6WzSjIue51FE6q7zgmCtWR2gMJ-w3)
+I found that I couldn't really get any real worthwhile performance improvements with a small ensemble of 4 classification models on a single fold (EfficientNetB4 with ImageNet weights; DenseNet169, InceptionResNetV2, and Xception on NIH weights) and the UEfficientNetB4 trained on pneumothorax positive patients only, so I just reverted back to segmentation only approaches. (Classification F-Scores were around 0.7-0.76 and AUCs around 0.82-0.87 depending on the thresholds). It would probably do better with larger ensembles, but time was a serious constraint with limited computing power.
 
-### [2] From the RSNA Pneumonia Detection 1st Place Solution
-[In-Progress]
-The second baseline is a classification + segmentation cascade.
-* The classification stage comes from [the 1st place solution for the 2018 RSNA Pneumonia Detection Challenge](https://github.com/i-pan/kaggle-rsna18). Their full description is located [here](https://www.kaggle.com/c/rsna-pneumonia-detection-challenge/discussion/70421).
-  * Fine-tunes ImageNet pretrained InceptionResNetV2, Xception, and DenseNet169 that are subsequently pretrained on the NIH ChestXray14 dataset.
-* The segmentation stage is similar to their detection ensemble, except that I change up the architectures
-  * 5-fold UResNet
-  * 5-fold UEfficientNet
-  * 5-fold Attention-Gated U-Net?
-  * idk
+__However, I did create a cleaner version found in the [original repository](https://github.com/i-pan/kaggle-rsna18) to load the NIH weights in the classification models, which is found in `pneumothorax_seg.training.utils.load_pretrained_classification_model`.__
 
-## EfficientNet-like Training
-Next I'm going to try to create 3 levels of architectures based on the U-Net and [the EfficientNet](https://arxiv.org/abs/1905.11946)
-way of training (d, w, r). As such, I need to create the GridSearch aspect of the pipeline and create a reasonable B0.
+### Misc. Approaches
+* [Regular U-Net](https://github.com/jchen42703/pneumothorax-seg-cnn/blob/master/pneumothorax_seg/models/unet/models.py): Just did a basic recursive tf.keras implementation with conv, LeakyReLU, and Instance Normalization. However, it didn't do too well (CV < 0.75), so I opted to just use the U-Net++. (This was done on 512x512 inputs).
+* [VAE CNN](https://github.com/jchen42703/pneumothorax-seg-cnn/blob/master/pneumothorax_seg/models/vae_cnn/models.py): This architecture is from an [unofficial implementation](https://github.com/IAmSuyogJadhav/3d-mri-brain-tumor-segmentation-using-autoencoder-regularization) of the [1st place solution to the 2018 MICCAI Brain Tumour Segmentation Challenge](https://arxiv.org/pdf/1810.11654.pdf). I just made a 2D version so that it fit the code style in this repository and that it worked for `tensorflow.keras` and `channels_last`. I didn't play with it much, but it did about as well as the vanilla U-Net, while consuming a lot more compute time. (This was also done on 512x512 inputs). Better hyperparameter tuning might've made a bigger difference, but I didn't have much compute to work with.
