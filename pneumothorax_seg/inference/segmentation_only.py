@@ -6,10 +6,10 @@ from tqdm import tqdm
 from pathlib import Path
 from functools import partial
 
-from efficientnet_seg.inference.mask_functions import mask2rle
-from efficientnet_seg.inference.utils import load_input, batch_test_fpaths
-from efficientnet_seg.io.utils import preprocess_input
-from efficientnet_seg.inference.segmentation import TTA_Segmentation_All, run_seg_prediction, zero_out_thresholded_single
+from pneumothorax_seg.inference.mask_functions import mask2rle
+from pneumothorax_seg.inference.utils import load_input, batch_test_fpaths
+from pneumothorax_seg.io.utils import preprocess_input
+from pneumothorax_seg.inference.segmentation import TTA_Segmentation_All, run_seg_prediction, zero_out_thresholded_single
 
 def SegmentationOnlyInference(seg_model, test_fpaths, channels=3, img_size=256, batch_size=32,
                               fpaths_batch_size=320, tta=True, threshold=0.5, zero_out_small_pred=True,

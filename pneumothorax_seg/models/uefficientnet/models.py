@@ -1,7 +1,7 @@
 from tensorflow.keras.layers import LeakyReLU, MaxPooling2D, Dropout, Conv2D, Conv2DTranspose, \
                              concatenate
 from tensorflow.keras.models import Model
-from efficientnet_seg.models.efficientnet.models import EfficientNetB4
+from pneumothorax_seg.models.efficientnet.models import EfficientNetB4
 from .model_utils import residual_block
 
 import tensorflow.keras.backend as K

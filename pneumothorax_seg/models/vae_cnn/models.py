@@ -10,8 +10,8 @@ from tensorflow.keras.layers import Conv2D, Activation, Add, UpSampling2D, Lambd
 from tensorflow.keras.optimizers import Adam
 from tensorflow.keras.models import Model
 
-from efficientnet_seg.models.vae_cnn.group_norm import GroupNormalization
-from efficientnet_seg.models.losses_metrics import my_iou_metric
+from pneumothorax_seg.models.vae_cnn.group_norm import GroupNormalization
+from pneumothorax_seg.models.losses_metrics import my_iou_metric
 
 def green_block(inp, filters, data_format="channels_last", name=None):
     """

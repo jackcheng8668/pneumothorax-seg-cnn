@@ -4,7 +4,7 @@ import os
 import skimage
 
 from tqdm import tqdm
-from efficientnet_seg.inference.mask_functions import *
+from pneumothorax_seg.inference.mask_functions import *
 
 def ensemble_segmentation_from_sub(df_sub_list, min_solutions=3):
     """

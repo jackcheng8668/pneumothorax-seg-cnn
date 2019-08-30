@@ -3,8 +3,8 @@ import glob
 import tensorflow as tf
 import albumentations
 
-from efficientnet_seg.io.generators import SegmentationGenerator, ClassificationGenerator
-from efficientnet_seg.io.utils import preprocess_input
+from pneumothorax_seg.io.generators import SegmentationGenerator, ClassificationGenerator
+from pneumothorax_seg.io.utils import preprocess_input
 from PIL import Image
 
 class GrayscaleSegmentationGenerator(SegmentationGenerator):

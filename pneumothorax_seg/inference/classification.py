@@ -6,9 +6,9 @@ from pathlib import Path
 from tqdm import tqdm
 from functools import partial
 
-from efficientnet_seg.io.data_aug import data_augmentation
-from efficientnet_seg.inference.utils import load_input, batch_test_fpaths
-from efficientnet_seg.io.utils import preprocess_input
+from pneumothorax_seg.io.data_aug import data_augmentation
+from pneumothorax_seg.inference.utils import load_input, batch_test_fpaths
+from pneumothorax_seg.io.utils import preprocess_input
 
 def Stage1(classification_model, test_fpaths, channels=3, img_size=256, batch_size=32,
            fpaths_batch_size=320, tta=True, n_tta_iter_per_image=4, tta_then_preprocess=True,
@@ -77,7 +77,7 @@ def Stage1(classification_model, test_fpaths, channels=3, img_size=256, batch_si
     # creating our df
     test_ids = [Path(fpath).stem for fpath in test_fpaths] # for the df
     if save_p:
-        from efficientnet_seg.inference.ensemble_df import create_classification_p_df
+        from pneumothorax_seg.inference.ensemble_df import create_classification_p_df
         _ = create_classification_p_df(preds_classify, test_ids)
     sub_df = create_thresholded_classification_csv(preds_classify, test_ids, threshold=threshold)
     print("Stage 1 Completed.")

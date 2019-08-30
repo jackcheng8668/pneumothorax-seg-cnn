@@ -14,10 +14,10 @@ from albumentations import (
     RGBShift, RandomBrightness, RandomContrast, Blur, MotionBlur, MedianBlur, GaussNoise, CenterCrop,
     IAAAdditiveGaussianNoise, GaussNoise, OpticalDistortion
 )
-from efficient_seg.models.uefficientnet import UEfficientNet
-from efficient_seg.training.callbacks import *
-from efficient_seg.models.losses_metrics import bce_dice_loss, my_iou_metric
-from efficientnet_seg.io.generators import DataGenerator
+from pneumothorax_seg.models.uefficientnet import UEfficientNet
+from pneumothorax_seg.training.callbacks import *
+from pneumothorax_seg.models.losses_metrics import bce_dice_loss, my_iou_metric
+from pneumothorax_seg.io.generators import DataGenerator
 
 def get_transforms():
     """

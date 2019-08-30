@@ -1,7 +1,7 @@
 from tensorflow.keras.layers import Add, Concatenate, MaxPooling2D, \
                                     UpSampling2D, LeakyReLU, \
                                     Conv2D, BatchNormalization
-from efficientnet_seg.models.unet.instance_norm import InstanceNormalization
+from pneumothorax_seg.models.unet.instance_norm import InstanceNormalization
 from tensorflow.keras import backend as K
 
 def localization_module_2D(input_layer, skip_layer, n_filters, upsampling_size=(2,2), n_convs=2, instance_norm=True):
