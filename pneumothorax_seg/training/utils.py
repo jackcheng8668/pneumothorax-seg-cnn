@@ -4,14 +4,14 @@ from tensorflow.keras.layers import Dropout, Flatten, Dense, GlobalAveragePoolin
 from tensorflow.keras.models import Model
 from tensorflow.keras import backend as K
 
-from efficientnet_seg.training.callbacks import SnapshotCallbackBuilder, SWA
-from efficientnet_seg.models.losses_metrics import f1
-from efficientnet_seg.models.efficientnet.models import EfficientNetB4
-from efficientnet_seg.models.grayscale.densenet import DenseNet169
-from efficientnet_seg.models.grayscale.xception import Xception
-from efficientnet_seg.models.grayscale.inception_resnet_v2 import InceptionResNetV2
+from pneumothorax_seg.training.callbacks import SnapshotCallbackBuilder, SWA
+from pneumothorax_seg.models.losses_metrics import f1
+from pneumothorax_seg.models.efficientnet.models import EfficientNetB4
+from pneumothorax_seg.models.grayscale.densenet import DenseNet169
+from pneumothorax_seg.models.grayscale.xception import Xception
+from pneumothorax_seg.models.grayscale.inception_resnet_v2 import InceptionResNetV2
 
-from efficientnet_seg.script_utils.downloaders import download_nih_weights, NIH_WEIGHTS
+from pneumothorax_seg.script_utils.downloaders import download_nih_weights, NIH_WEIGHTS
 
 def load_pretrained_classification_model(model_name="efficientnet", input_shape=None,
                                          dropout=None, pretrained="imagenet"):

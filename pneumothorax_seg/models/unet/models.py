@@ -4,7 +4,7 @@ from tensorflow.keras import backend as K
 from functools import partial
 
 import numpy as np
-import efficientnet_seg.models.unet.model_utils as model_utils
+import pneumothorax_seg.models.unet.model_utils as model_utils
 
 class UNet(object):
     """

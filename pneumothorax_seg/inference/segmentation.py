@@ -3,9 +3,9 @@ import cv2
 import os
 from tqdm import tqdm
 from pathlib import Path
-from efficientnet_seg.inference.mask_functions import *
-from efficientnet_seg.inference.utils import load_input
-from efficientnet_seg.io.utils import preprocess_input
+from pneumothorax_seg.inference.mask_functions import *
+from pneumothorax_seg.inference.utils import load_input
+from pneumothorax_seg.io.utils import preprocess_input
 from functools import partial
 
 def Stage2(seg_model, sub_df, test_fpaths, channels=3, img_size=256, batch_size=32, tta=True,

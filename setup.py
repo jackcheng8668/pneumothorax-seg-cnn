@@ -1,6 +1,6 @@
 from setuptools import setup, find_packages
 
-setup(name="efficientnet_seg",
+setup(name="pneumothorax_seg",
       version="0.01.1",
       description="For the SIIM Pneumothorax Segmentation Kaggle Challenge",
       url="",
